@@ -1,0 +1,63 @@
+{
+  "zmq": {
+    "push_port": 5555,
+    "pull_port": 5556,
+    "sub_port": 5557,
+    "history_timeout_ms": 30000,
+    "send_timeout_ms": 200,
+    "recv_timeout_ms": 2000
+  },
+  "symbols": [
+    {
+      "symbol": "XAUUSD@",
+      "enabled": true,
+      "session_start": "16:53",
+      "session_end": "23:59",
+      "sl_pips": 60.0,
+      "tp_pips": 30.0,
+      "pip_value": 1.0,
+      "tick_size": 1.0,
+      "tick_value": 1.0,
+      "min_lot": 0.01,
+      "lot_step": 0.01,
+      "max_lot": 50.0
+    }
+  ],
+  "risk": {
+    "risk_pct": 1.0,
+    "max_open_positions": 5,
+    "max_daily_loss_pct": 5.0,
+    "robot_running": true,
+    "sl_pips": 60.0,
+    "tp_pips": 30.0,
+    "sl": {
+      "type": "structural",
+      "fixed_pips": 60.0,
+      "structural_leg2chain": "leg1_extreme",
+      "structural_leg3drive": "stop1_extreme"
+    },
+    "tp": {
+      "type": "fixed",
+      "fixed_pips": 30.0,
+      "r_multiplier": 0.5
+    },
+    "position2": {
+      "enabled": true,
+      "risk_pct": 1.0,
+      "sl_pips": 60.0,
+      "entry_r": 0.25
+    }
+  },
+  "position": {
+    "position1_multiplier": 0.5,
+    "position2_multiplier": 3.0,
+    "reentry_multiplier": 0.5,
+    "enable_pos2_loss_floor": false
+  },
+  "app": {
+    "api_port": 8000,
+    "api_host": "127.0.0.1",
+    "db_path": "captainpips.db",
+    "log_level": "INFO"
+  }
+}

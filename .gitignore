@@ -1,0 +1,53 @@
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+
+# Environment
+.env
+.env.local
+venv/
+env/
+
+# Windows/system files
+AppData/
+Application Data/
+Cookies/
+Documents/
+Local Settings/
+My Documents/
+NetHood/
+PrintHood/
+Recent/
+SendTo/
+Start Menu/
+Templates/
+Thumbs.db
+*.db
+*.log
+*.bash_history
+*.history
+
+# Node/frontend
+node_modules/
+captainpips/panel/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Project-specific
+*.bak
+.claude/
