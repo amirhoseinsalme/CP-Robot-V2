@@ -95,7 +95,8 @@ class ShiftScorer:
         ema_values:     EMA-60 value per candle, aligned to *all_candles* by index.
         all_candles:    Full candle history (needed for gap/double scanning).
         """
-        direction = breaking_stop.direction
+        # Breaking stop moves OPPOSITE to structure direction
+        direction = Direction.BULL if breaking_stop.direction == Direction.BEAR else Direction.BEAR
         legs = [s for s in segments if s.kind == SegmentKind.LEG]
         stops = [s for s in segments if s.kind == SegmentKind.STOP]
 
@@ -296,18 +297,19 @@ class ShiftScorer:
         stop: Segment,
         direction: Direction,
     ) -> bool:
-        """f — First BO candle in stop closes beyond prev candle's extreme."""
+        """f — Any candle in stop closes beyond prev candle's extreme."""
         if len(stop.candles) < 2:
             return False
 
         for i in range(1, len(stop.candles)):
             prev_c = stop.candles[i - 1]
             curr_c = stop.candles[i]
-
-            if direction == Direction.BULL and curr_c.high > prev_c.high:
-                return curr_c.close > prev_c.high
-            elif direction == Direction.BEAR and curr_c.low < prev_c.low:
-                return curr_c.close < prev_c.low
+            if direction == Direction.BULL:
+                if curr_c.close > prev_c.high:
+                    return True
+            elif direction == Direction.BEAR:
+                if curr_c.close < prev_c.low:
+                    return True
 
         return False
 

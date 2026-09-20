@@ -9,10 +9,10 @@
   },
   "symbols": [
     {
-      "symbol": "XAUUSD@",
+      "symbol": "US30.U26",
       "enabled": true,
-      "session_start": "16:53",
-      "session_end": "23:59",
+      "session_start": "16:30",
+      "session_end": "23:00",
       "sl_pips": 60.0,
       "tp_pips": 30.0,
       "pip_value": 1.0,
@@ -37,7 +37,7 @@
       "structural_leg3drive": "stop1_extreme"
     },
     "tp": {
-      "type": "fixed",
+      "type": "r_based",
       "fixed_pips": 30.0,
       "r_multiplier": 0.5
     },

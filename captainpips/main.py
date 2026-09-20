@@ -296,7 +296,12 @@ class CaptainPipsBot:
         return int(calendar.timegm(session_clock.timetuple()))
 
     def _backfill_symbol(self, sc: SymbolConfig, broker_ts: int) -> None:
-        """Backfill one symbol from its session_start to broker_ts."""
+        """Backfill one symbol from its session_start to broker_ts.
+
+        Requests 60 extra minutes before session_start for EMA warm-up.
+        Pre-session candles only feed the EMA — structure building starts
+        at session_start.
+        """
         sym = sc.symbol
         self._ensure_symbol(sym)
 
@@ -313,28 +318,22 @@ class CaptainPipsBot:
             log.warning("Cannot compute backfill range for %s — skipping", sym)
             return
 
-        log.info(f"Backfill timestamps: from={from_ts} "
-                 f"to={to_ts} "
-                 f"broker_now={int(time.time()) + self._broker_offset} "
-                 f"diff_minutes={(to_ts - from_ts) // 60}")
-
         if from_ts >= to_ts:
             log.info("%s: session %s has not started yet — no backfill needed", sym, sc.session_start)
             return
 
-        builder = self.builders.get(sym)
-        log.info("Builder segments before reset: %d", len(builder.segments) if builder else 0)
-        expected_bars = (to_ts - from_ts) // 60
+        # Request 60 extra minutes before session_start for EMA warm-up
+        ema_from_ts = from_ts - (60 * 60)
+
         log.info(
-            "Backfilling %s from %s to %s (%d bars expected)",
+            "Backfilling %s: EMA warm-up from %s, structure from %s to %s",
             sym,
+            datetime.utcfromtimestamp(ema_from_ts).strftime("%H:%M"),
             datetime.utcfromtimestamp(from_ts).strftime("%H:%M"),
             datetime.utcfromtimestamp(to_ts).strftime("%H:%M"),
-            expected_bars,
         )
 
-        log.info("Requesting history for %s from %d to %d (timestamps)", sym, from_ts, to_ts)
-        bars = self.zmq.request_historical(sym, from_ts=from_ts, to_ts=to_ts, timeframe=1)
+        bars = self.zmq.request_historical(sym, from_ts=ema_from_ts, to_ts=to_ts, timeframe=1)
         log.info("Got %d bars for %s", len(bars) if bars else 0, sym)
 
         if not bars:
@@ -346,9 +345,14 @@ class CaptainPipsBot:
         if builder:
             log.info("Builder reset for %s (was %d segments)", sym, len(builder.segments))
             builder.reset(from_candle_index=0)
-            log.info("Builder after reset: %d segments, confirmed_legs=%d", len(builder.segments), builder.confirmed_legs)
+
         for raw in bars:
-            self._process_candle(sym, raw, broadcast=False)
+            raw_time = int(raw.get("time", 0))
+            if raw_time < from_ts:
+                # Pre-session candle: EMA warm-up only, no structure building
+                self._update_ema(sym, float(raw["close"]))
+            else:
+                self._process_candle(sym, raw, broadcast=False)
 
     def _start_stream(self) -> None:
         """Blocking ZMQ stream listener — runs on the zmq-stream daemon thread."""

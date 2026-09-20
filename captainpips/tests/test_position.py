@@ -209,3 +209,8 @@ class TestTradeStateMachine:
         events = sm.update_bar(bar_low=self.ENTRY, bar_high=self.ENTRY + 1.0)
         assert TradeEvent.REENTRY_TRIGGERED in events
         assert sm.state == TradeState.REENTRY_ACTIVE
+
+
+if __name__ == "__main__":
+    import unittest
+    unittest.main(verbosity=2)

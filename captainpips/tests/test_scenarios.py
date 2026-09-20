@@ -285,6 +285,75 @@ def run_shift_scenario(name, rows,
 
 
 # ─────────────────────────────────────────────────────────
+# Runner: shift element detail scenarios
+# ─────────────────────────────────────────────────────────
+def run_shift_elements_test(name, rows, expected_elements,
+                            expected_true_count, expected_confirmed,
+                            ema_values=None):
+    """Test specific shift elements."""
+    print(f"\n{'='*60}")
+    print(f"SCENARIO: {name}")
+    print(f"Expected: {expected_elements}")
+    print(f"{'='*60}")
+
+    candles = make_candles(rows)
+    builder = StructureBuilder()
+
+    for c in candles:
+        builder.process(c, ema_values=ema_values or [])
+
+    segments = builder.segments
+    stops = [s for s in segments if s.kind == SegmentKind.STOP]
+
+    if not stops:
+        print("  FAIL: No stop segment found")
+        return False
+
+    scorer = ShiftScorer()
+    shift_score = scorer.score(
+        breaking_stop=stops[-1],
+        segments=segments,
+        ema_values=ema_values or [],
+        all_candles=builder.all_candles,
+    )
+
+    print(f"  Segments: {len(segments)} (legs={len([s for s in segments if s.kind == SegmentKind.LEG])}, stops={len(stops)})")
+    print(f"  Elements:")
+    actual = {
+        'a': shift_score.a_outbreak,
+        'b': shift_score.b_double,
+        'c': shift_score.c_structure_break,
+        'd': shift_score.d_ema60,
+        'e': shift_score.e_followthrough,
+        'f': shift_score.f_closegap,
+        'g': shift_score.g_size,
+        'h': shift_score.h_gapfill,
+        'i': shift_score.i_3cgap,
+    }
+
+    ok = True
+    for elem, expected in expected_elements.items():
+        got = actual[elem]
+        status = "PASS" if got == expected else "FAIL"
+        print(f"    {status} {elem}: expected={expected} got={got}")
+        if got != expected:
+            ok = False
+
+    count_ok = shift_score.true_count == expected_true_count
+    conf_ok = shift_score.confirmed == expected_confirmed
+
+    print(f"  true_count: expected={expected_true_count} got={shift_score.true_count} {'PASS' if count_ok else 'FAIL'}")
+    print(f"  confirmed: expected={expected_confirmed} got={shift_score.confirmed} {'PASS' if conf_ok else 'FAIL'}")
+
+    if ok and count_ok and conf_ok:
+        print(f"\n  PASS")
+    else:
+        print(f"\n  FAIL")
+
+    return ok and count_ok and conf_ok
+
+
+# ─────────────────────────────────────────────────────────
 # Runner: single-strategy entry scenarios
 # ─────────────────────────────────────────────────────────
 def run_strategy_scenario(name, rows, strategy_class, expected_signals):
@@ -694,6 +763,26 @@ scenario_11 = [
     ("2026.09.16", "10:22:00", 52190, 52196, 52188, 52192),
 ]
 
+# ─────────────────────────────────────────────────────────
+# SCENARIO 12: Shift Elements - 1 Leg Bear (single leg reverse)
+# ─────────────────────────────────────────────────────────
+scenario_12 = [
+    ("2026.09.18", "16:53:00", 4357.07, 4357.07, 4350.01, 4350.34),
+    ("2026.09.18", "16:54:00", 4350.44, 4352.07, 4347.72, 4349.78),
+    ("2026.09.18", "16:55:00", 4349.64, 4350.32, 4349.05, 4349.69),
+    ("2026.09.18", "16:56:00", 4349.73, 4352.37, 4349.58, 4349.64),
+    ("2026.09.18", "16:57:00", 4349.70, 4349.78, 4347.86, 4348.62),
+    ("2026.09.18", "16:58:00", 4348.55, 4350.65, 4348.19, 4349.46),
+    ("2026.09.18", "16:59:00", 4349.65, 4349.80, 4347.30, 4349.36),
+    ("2026.09.18", "17:00:00", 4349.33, 4350.74, 4347.70, 4350.27),
+    ("2026.09.18", "17:01:00", 4350.45, 4351.30, 4348.26, 4351.24),
+    ("2026.09.18", "17:02:00", 4350.96, 4352.71, 4350.70, 4351.87),
+    ("2026.09.18", "17:03:00", 4351.86, 4354.29, 4351.85, 4354.06),
+    ("2026.09.18", "17:04:00", 4354.10, 4356.40, 4353.97, 4356.07),
+    ("2026.09.18", "17:05:00", 4356.16, 4356.48, 4352.14, 4353.56),
+    ("2026.09.18", "17:06:00", 4353.55, 4354.17, 4351.75, 4353.93),
+]
+
 
 # ─────────────────────────────────────────────────────────
 # Run all scenarios
@@ -730,7 +819,7 @@ def run_all():
         expected_legs_before=7,     expected_dir_before="BULL",
         expected_break_time="16:13",
         expected_legs_after=2,      expected_dir_after="BEAR",
-        expected_shift_true_count=5, expected_shift_confirmed=False,
+        expected_shift_true_count=6, expected_shift_confirmed=True,
     ))
 
     # 8a/8b: Leg3Drive Mode A entry + Leg2Chain activation check on the same data
@@ -767,6 +856,25 @@ def run_all():
         scenario_11,
         Leg2Chain,
         expected_signals=[("10:18", "Leg2Chain", "BEAR")]
+    ))
+
+    # 12: shift element detail check
+    results.append(run_shift_elements_test(
+        "Shift Elements - 1 Leg Bear (single leg reverse)",
+        scenario_12,
+        expected_elements={
+            'a': True,   # Outbreak confirmed
+            'b': True,   # Double bottom confirmed
+            'c': False,  # N/A - single leg
+            'd': False,  # EMA: needs 60 prior candles (test data insufficient)
+            'e': True,   # FT confirmed
+            'f': True,   # Close Gap confirmed
+            'g': False,  # N/A - single leg
+            'h': False,  # Gap Fill not confirmed
+            'i': True,   # 3-candle gap confirmed
+        },
+        expected_true_count=5,
+        expected_confirmed=False,
     ))
 
     print(f"\n{'='*60}")

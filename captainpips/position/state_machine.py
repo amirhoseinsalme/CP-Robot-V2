@@ -79,6 +79,7 @@ class TradeStateMachine:
         self._direction = direction
         self._risk = abs(entry_price - main_sl_price)
         self._enable_pos2_loss_floor = enable_pos2_loss_floor
+        self._adverse_before_pos2 = False
         self.state = TradeState.INITIAL_MONITORING
 
     # -----------------------------------------------------------------------
@@ -137,15 +138,18 @@ class TradeStateMachine:
             self.state = TradeState.FAILED_WAIT_REENTRY
             return [TradeEvent.FULL_FAIL_EXIT]
 
+        if adv <= _R_NEGATIVE:
+            self._adverse_before_pos2 = True
+
         if fav >= _R_TP:
             self.state = TradeState.FINISHED
             return [TradeEvent.POSITION1_CLOSE_TP]
 
-        if fav >= _R_ADD_POS2:
+        if fav >= _R_ADD_POS2 and not self._adverse_before_pos2:
             self.state = TradeState.POS2_ACTIVE
             return [TradeEvent.POSITION2_ADDED]
 
-        if adv <= _R_NEGATIVE:
+        if self._adverse_before_pos2:
             self.state = TradeState.NEGATIVE_WATCH
 
         return []

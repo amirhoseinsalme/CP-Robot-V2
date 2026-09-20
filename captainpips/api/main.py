@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from captainpips.config import Config, RiskConfig, SymbolConfig
+from captainpips.api.backtest import router as backtest_router
 
 log = logging.getLogger(__name__)
 
@@ -132,6 +133,8 @@ app.mount(
     name="static",
 )
 
+app.include_router(backtest_router)
+
 
 # ---------------------------------------------------------------------------
 # Panel root
@@ -165,6 +168,16 @@ def panel_logs() -> HTMLResponse:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return HTMLResponse(content="<h1>Logs page not found</h1>", status_code=404)
+
+
+@app.get("/backtest", response_class=HTMLResponse)
+def panel_backtest() -> HTMLResponse:
+    path = "captainpips/panel/templates/backtest.html"
+    try:
+        with open(path, encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Backtest page not found</h1>", status_code=404)
 
 
 # ---------------------------------------------------------------------------
