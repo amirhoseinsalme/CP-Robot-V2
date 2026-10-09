@@ -202,13 +202,27 @@ class TestTradeStateMachine:
         assert sm.state == TradeState.NEGATIVE_WATCH
 
     def test_reentry_after_fail(self):
-        sm = self._sm()
+        sm = self._sm(direct_fail_exit=False)
         sm.update_bar(bar_low=self.FAIL, bar_high=self.FAIL + 1.0)
         assert sm.state == TradeState.FAILED_WAIT_REENTRY
         # Price returns to entry level → re-entry triggered
         events = sm.update_bar(bar_low=self.ENTRY, bar_high=self.ENTRY + 1.0)
         assert TradeEvent.REENTRY_TRIGGERED in events
         assert sm.state == TradeState.REENTRY_ACTIVE
+
+
+    def test_direct_fail_exit_never_positive(self):
+        sm = self._sm(direct_fail_exit=True)
+        events = sm.update_bar(bar_low=self.FAIL, bar_high=self.FAIL + 1.0)
+        assert TradeEvent.FULL_FAIL_EXIT in events
+        assert sm.state == TradeState.FINISHED
+
+    def test_direct_fail_exit_touched_positive(self):
+        sm = self._sm(direct_fail_exit=True)
+        sm.update_bar(bar_low=self.ENTRY, bar_high=self.ENTRY + 1.0)
+        events = sm.update_bar(bar_low=self.FAIL, bar_high=self.FAIL + 1.0)
+        assert TradeEvent.FULL_FAIL_EXIT in events
+        assert sm.state == TradeState.FAILED_WAIT_REENTRY
 
 
 if __name__ == "__main__":

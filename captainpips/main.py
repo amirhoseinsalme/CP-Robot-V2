@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import calendar
 import logging
+import logging.handlers
+import os
 import threading
 import time
 from collections import deque
@@ -35,9 +37,12 @@ from captainpips.core.strategies.base import BaseStrategy, EntryWatch
 from captainpips.core.strategies.leg2chain import Leg2Chain
 from captainpips.core.strategies.leg3drive import Leg3Drive, _d_beyond_b
 from captainpips.core.strategies.paradoxical import Paradoxical
+from captainpips.core.strategies.M2Bo import M2BO
+from captainpips.core.structure_rules import StructurePoints
 from captainpips.core.structure_state import EventKind, StructureBuilder, StructureEvent
 from captainpips.position.manager import PositionManager
 from captainpips.risk.risk_manager import RiskManager
+from captainpips.supervisor.memory import SupervisorMemory
 
 log = logging.getLogger(__name__)
 
@@ -72,16 +77,13 @@ class CaptainPipsBot:
         # --- per-symbol state ---
         self.builders: dict[str, StructureBuilder] = {}
         self.paradox: dict[str, Paradoxical] = {}
+        self.m2bo: dict[str, M2BO] = {}
         self.ema: dict[str, list[float]] = {}
         self._ema_prev: dict[str, float | None] = {}
         self.active_watch: dict[str, tuple[EntryWatch, BaseStrategy]] = {}
-
-        for sc in config.enabled_symbols():
-            sym = sc.symbol
-            self.builders[sym] = StructureBuilder()
-            self.paradox[sym] = Paradoxical()
-            self.ema[sym] = []
-            self._ema_prev[sym] = None
+        self._backfill_end_time: dict[str, int] = {}
+        self._is_backfilling: dict[str, bool] = {}
+        self._broker_names: dict[str, str] = {}   # key = symbol.strip().upper() → exact EA name
 
         # --- shared modules ---
         self.strategies: list[BaseStrategy] = [Leg2Chain(), Leg3Drive()]
@@ -90,6 +92,7 @@ class CaptainPipsBot:
         self.risk = RiskManager(config.risk)
         self.positions = PositionManager(self.zmq, config)
         self._drawer = ChartDrawer(self.zmq)
+        self._supervisor_memory = SupervisorMemory()
 
         # --- account state ---
         self.account_balance: float = 0.0
@@ -97,9 +100,13 @@ class CaptainPipsBot:
         self._session_start_balance: float | None = None
 
         # --- per-symbol candle index counters ---
-        self._candle_index: dict[str, int] = {
-            sc.symbol: 0 for sc in config.enabled_symbols()
-        }
+        self._candle_index: dict[str, int] = {}
+
+        # --- per-symbol stop candle tracking (for drawing updates) ---
+        self._stop_candle_count: dict[str, int] = {}
+
+        # --- active targets (per-symbol, settable by strategy/structure logic) ---
+        self._active_targets: dict[str, list[str]] = {}
 
         # --- recent candle cache (last 100 per symbol, for /api/candles) ---
         self._recent_candles: dict[str, deque] = {}
@@ -120,7 +127,51 @@ class CaptainPipsBot:
         self._log_handler = MemoryLogHandler(maxlen=200)
         logging.getLogger().addHandler(self._log_handler)
 
+        # --- file logging (timestamped per session) ---
+        self._log_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+        os.makedirs(self._log_dir, exist_ok=True)
+        self._file_handler: logging.handlers.FileHandler | None = None
+        self._rotate_session_log()  # create first session log file
+
         self._wire_bot_state()
+
+    # ------------------------------------------------------------------
+    # Session logging
+    # ------------------------------------------------------------------
+
+    def _rotate_session_log(self) -> None:
+        """Create a new timestamped log file for this session, clean up old logs."""
+        # Remove old file handler if it exists
+        if self._file_handler:
+            logging.getLogger().removeHandler(self._file_handler)
+            self._file_handler.close()
+
+        # Create new timestamped log file
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_file = os.path.join(self._log_dir, f'robot_{timestamp}.log')
+        self._file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        self._file_handler.setLevel(logging.DEBUG)
+        self._file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s  %(name)-30s %(levelname)-6s %(message)s'
+        ))
+        logging.getLogger().addHandler(self._file_handler)
+        log.info(f"Session log: {log_file}")
+
+        # Clean up old session logs, keep last 10
+        self._cleanup_old_logs()
+
+    def _cleanup_old_logs(self) -> None:
+        """Remove session logs older than the most recent 10."""
+        import glob
+        pattern = os.path.join(self._log_dir, 'robot_*.log')
+        logs = sorted(glob.glob(pattern), reverse=True)
+        if len(logs) > 10:
+            for old_log in logs[10:]:
+                try:
+                    os.remove(old_log)
+                    log.debug(f"Cleaned up old log: {os.path.basename(old_log)}")
+                except OSError as e:
+                    log.warning(f"Failed to delete old log {os.path.basename(old_log)}: {e}")
 
     # ------------------------------------------------------------------
     # Startup
@@ -208,6 +259,8 @@ class CaptainPipsBot:
                 "direction": builder.direction.value if builder.direction else None,
                 "segments": len(builder.segments),
                 "candles_processed": self._candle_index.get(sym, 0),
+                "active_targets": self._compute_active_targets(sym),
+                "paradox_active": self.paradox.get(sym) is not None and self.paradox[sym].is_active(),
             })
         log.info("Post-backfill structure snapshot broadcast for %d symbols", len(self.builders))
 
@@ -240,6 +293,7 @@ class CaptainPipsBot:
                 "direction": builder.direction.value if builder.direction else None,
                 "segments": segments_data,
                 "candles_processed": self._candle_index.get(sym, 0),
+                "active_targets": self._compute_active_targets(sym),
             }
         return result
 
@@ -302,8 +356,14 @@ class CaptainPipsBot:
         Pre-session candles only feed the EMA — structure building starts
         at session_start.
         """
-        sym = sc.symbol
+        if sc.symbol.strip().upper() not in self._broker_names:
+            log.info("Backfill for %s deferred until first live candle", sc.symbol)
+            return
+        sym = self._canon(sc.symbol)
         self._ensure_symbol(sym)
+
+        # Clear any leftover chart objects from a previous run before drawing fresh
+        self._drawer.on_structure_reset(sym)
 
         to_ts = int(time.time()) + self._broker_offset
         from_ts = self._session_ts_from_broker(to_ts, sc.session_start)
@@ -346,6 +406,7 @@ class CaptainPipsBot:
             log.info("Builder reset for %s (was %d segments)", sym, len(builder.segments))
             builder.reset(from_candle_index=0)
 
+        self._is_backfilling[sym] = True
         for raw in bars:
             raw_time = int(raw.get("time", 0))
             if raw_time < from_ts:
@@ -353,35 +414,97 @@ class CaptainPipsBot:
                 self._update_ema(sym, float(raw["close"]))
             else:
                 self._process_candle(sym, raw, broadcast=False)
+        self._is_backfilling[sym] = False
+
+        # Draw all current segments after backfill
+        builder = self.builders[sym]
+        leg_num = 0
+        stop_num = 0
+        for i, seg in enumerate(builder.segments):
+            if seg.kind == SegmentKind.LEG:
+                leg_num += 1
+                self._drawer.on_leg_confirmed(seg, leg_num, sym)
+            elif seg.kind == SegmentKind.STOP:
+                stop_num += 1
+                self._drawer.on_stop_started(seg, stop_num, sym)
+        if bars:
+            last_raw_time = int(bars[-1].get("time", 0))
+            self._backfill_end_time[sym] = last_raw_time
+            log.info("Backfill end time for %s: %d", sym, last_raw_time)
+        log.info("Backfill complete for %s: drew %d legs, %d stops", sym, leg_num, stop_num)
+
+        # Draw paradox zone if active after backfill
+        pstate = self.paradox.get(sym)
+        if pstate and pstate.is_active():
+            self._drawer.on_paradox_zone(pstate.upper, pstate.lower, sym)
+            log.info("Backfill: paradox zone active for %s upper=%s lower=%s",
+                     sym, pstate.upper, pstate.lower)
+
+        # Replay candle history to all connected WebSocket monitors so the
+        # panel is populated immediately — without this, the monitor stays
+        # blank until the next live candle arrives.
+        recent = list(self._recent_candles.get(sym, []))
+        if recent:
+            log.info(
+                "Replaying %d cached candles for %s to WebSocket monitors", len(recent), sym
+            )
+            for rec in recent:
+                self._broadcast({
+                    "type": "candle",
+                    "symbol": sym,
+                    "index": rec["index"],
+                    "time": rec["time"],
+                    "label": rec["label"],
+                    "direction": rec["direction"],
+                    "open": rec["open"],
+                    "high": rec["high"],
+                    "low": rec["low"],
+                    "close": rec["close"],
+                })
 
     def _start_stream(self) -> None:
-        """Blocking ZMQ stream listener — runs on the zmq-stream daemon thread."""
-        log.info("Starting ZMQ stream listener")
-        try:
-            self.zmq.listen_stream(
-                on_candle=self._on_candle_message,
-                on_account=self._on_account_message,
-                on_positions=self._on_positions_message,
-                on_history_reply=self._on_history_reply,
-                on_idle=self._on_idle,
-            )
-        except Exception as e:
-            log.exception("listen_stream crashed: %s", e)
+        """Blocking ZMQ stream listener — runs on the zmq-stream daemon thread.
+
+        Wraps listen_stream in a while-True retry loop so any crash or
+        unexpected return auto-restarts the listener instead of silently
+        killing the thread.
+        """
+        while True:
+            log.info("Starting ZMQ stream listener")
+            try:
+                self.zmq.listen_stream(
+                    on_candle=self._on_candle_message,
+                    on_account=self._on_account_message,
+                    on_positions=self._on_positions_message,
+                    on_history_reply=self._on_history_reply,
+                    on_idle=self._on_idle,
+                )
+                log.warning("listen_stream returned unexpectedly — restarting in 3s")
+            except Exception as e:
+                log.exception("listen_stream crashed: %s — restarting in 3s", e)
+            time.sleep(3)
 
     # ------------------------------------------------------------------
     # Inbound message handlers
     # ------------------------------------------------------------------
+
+    def _init_symbol_state(self, symbol: str) -> None:
+        """Create (or fully reset) all per-symbol state dicts for *symbol*."""
+        self.builders[symbol] = StructureBuilder()
+        self.paradox[symbol] = Paradoxical()
+        self.m2bo[symbol] = M2BO()
+        self.ema[symbol] = []
+        self._ema_prev[symbol] = None
+        self._candle_index[symbol] = 0
+        self.active_watch.pop(symbol, None)
+        self._stop_candle_count.pop(symbol, None)
 
     def _ensure_symbol(self, symbol: str) -> None:
         """Lazily register per-symbol state for any symbol the EA streams."""
         if symbol in self.builders:
             return
         log.info("Auto-registering streamed symbol: %s", symbol)
-        self.builders[symbol] = StructureBuilder()
-        self.paradox[symbol] = Paradoxical()
-        self.ema[symbol] = []
-        self._ema_prev[symbol] = None
-        self._candle_index[symbol] = 0
+        self._init_symbol_state(symbol)
 
     def _on_candle_message(self, data: dict) -> None:
         """Route an incoming CANDLE message to the right symbol pipeline."""
@@ -397,8 +520,26 @@ class CaptainPipsBot:
         symbol: str = data.get("symbol", "")
         if not symbol:
             return
+        self._broker_names[symbol.strip().upper()] = symbol
 
         self._ensure_symbol(symbol)
+
+        # Trigger backfill on first candle if not yet backfilled.
+        # Run on a background thread so the ZMQ stream thread is never blocked.
+        if self._candle_index.get(symbol, 0) == 0:
+            if self._broker_now_ts is not None and not self._is_backfilling.get(symbol, False):
+                sc = self._symbol_config(symbol)
+                if sc:
+                    log.info(
+                        "First candle for %s — scheduling backfill on background thread", symbol
+                    )
+                    t = threading.Thread(
+                        target=self._backfill_symbol,
+                        args=(sc, self._broker_now_ts),
+                        daemon=True,
+                        name=f"backfill-{symbol}",
+                    )
+                    t.start()
 
         # EA sends "time" as a Unix timestamp (int); convert to HH:MM for
         # session filtering and Candle storage.
@@ -412,11 +553,20 @@ class CaptainPipsBot:
         self._process_candle(symbol, data, time_str=time_str, broadcast=True)
 
     def _on_account_message(self, data: dict) -> None:
-        """Update cached account state from EA broadcast."""
+        """Update cached account state from EA broadcast.
+
+        Also captures an approximate broker time from local clock when the first
+        ACCOUNT message arrives.  This allows _backfill() to run immediately on
+        startup without waiting 15 s for the first bar close (CANDLE messages
+        only arrive when a 1-minute bar closes, so the wait would time out).
+        The offset is set to 0 (local ≈ broker clock), which is accurate enough
+        for session-start calculations.
+        """
         balance = data.get("balance", self.account_balance)
         if self._session_start_balance is None and balance > 0:
             self._session_start_balance = balance
         self.account_balance = balance
+        self.positions.update_balance(balance)  # keep position manager in sync
         if self._session_start_balance and self._session_start_balance > 0:
             loss = self._session_start_balance - balance
             self.daily_loss_pct = max(0.0, loss / self._session_start_balance * 100.0)
@@ -502,19 +652,30 @@ class CaptainPipsBot:
             # Paradoxical boundary crossed: structure direction reverses
             # NOT a trade entry — just reset structure
             new_direction = signal.direction
+
+            activation_index = self.paradox[symbol].activation_index
+            start_index = activation_index if activation_index is not None else candle.index
+
+            builder = self.builders[symbol]
+            replay_list = [c for c in builder.all_candles if c.index >= start_index]
+
+            builder.reset(from_candle_index=start_index)
+
+            ema_vals = self.ema.get(symbol, [])
+            for c in replay_list:
+                builder.process(c, ema_values=ema_vals)
+
             log.info(
-                "[%s] Paradoxical boundary crossed → reset structure direction=%s",
+                "[%s] Paradoxical boundary crossed → reset structure direction=%s replay_from=%s",
                 symbol,
                 new_direction.value,
+                start_index,
             )
-
-            # Reset builder and replay breaking candle
-            builder = self.builders[symbol]
-            builder.reset(from_candle_index=candle.index)
-            builder.process(candle, ema_values=self.ema.get(symbol, []))
 
             # Reset paradoxical state
             self.paradox[symbol] = Paradoxical()
+            self.m2bo[symbol] = M2BO()
+            self._broadcast_paradox(symbol)
 
             # Clear active watch
             self.active_watch.pop(symbol, None)
@@ -527,6 +688,8 @@ class CaptainPipsBot:
                 "direction": None,
                 "segments": [],
                 "candles_processed": candle.index,
+                "active_targets": [],
+                "paradox_active": False,
             })
             self._retag_recent_candles(symbol, builder)
             return
@@ -541,11 +704,19 @@ class CaptainPipsBot:
         leg_num = 0
         stop_num = 0
         segments_data = []
-        for seg in builder.segments:
+        all_segs = builder.segments
+        for i, seg in enumerate(all_segs):
+            endpoint = None
+            leg_start = None
             if seg.kind == SegmentKind.LEG:
                 leg_num += 1
                 num = leg_num
                 confirmed = leg_num <= confirmed_legs
+                prev_stop = None
+                if i - 1 >= 0 and all_segs[i - 1].kind == SegmentKind.STOP:
+                    prev_stop = all_segs[i - 1]
+                endpoint = StructurePoints.leg_endpoint(seg)
+                leg_start = StructurePoints.leg_start(seg, prev_stop)
             else:
                 stop_num += 1
                 num = stop_num
@@ -556,6 +727,8 @@ class CaptainPipsBot:
                 "n_candles": seg.n_candles,
                 "high": seg.high,
                 "low": seg.low,
+                "endpoint": endpoint,
+                "leg_start": leg_start,
                 "num": num,
                 "confirmed": confirmed,
             })
@@ -577,14 +750,22 @@ class CaptainPipsBot:
             "segments": segments_data,
             "candles_processed": index,
             "d_beyond_b": d_beyond_b,
+            "active_targets": self._compute_active_targets(symbol),
+            "paradox_active": self.paradox.get(symbol) is not None and self.paradox[symbol].is_active(),
         })
+        self._drawer.on_fail_zone(builder, symbol)
         self._retag_recent_candles(symbol, builder)
 
         # 2b. Real-time shift score on every candle while in a stop
         segments = builder.segments
         if segments and segments[-1].kind == SegmentKind.STOP:
             stops = [s for s in segments if s.kind == SegmentKind.STOP]
+            legs = [s for s in segments if s.kind == SegmentKind.LEG]
             breaking_stop = stops[-1]
+            log.debug(f"Shift calc: symbol={symbol} "
+                      f"stop_dir={breaking_stop.direction} "
+                      f"segments={len(segments)} "
+                      f"legs={len(legs)} stops={len(stops)}")
             shift = self.shift_scorer.score(
                 breaking_stop=breaking_stop,
                 segments=segments,
@@ -615,25 +796,116 @@ class CaptainPipsBot:
         for event in events:
             if event.kind in (EventKind.STRUCTURE_BROKEN, EventKind.SINGLE_LEG_REVERSED):
                 self._drawer.on_structure_reset(symbol)
+                self._stop_candle_count[symbol] = 0  # reset stop tracking on structure break
                 self._on_structure_break(symbol, event, candle)
                 broke = True
                 break  # builder was reset — discard remaining stale events
             elif event.kind == EventKind.LEG_CONFIRMED:
-                leg = builder.segments[-2]  # stop was appended after leg in _promote_and_stop
-                self._drawer.on_leg_confirmed(leg, builder.confirmed_legs, symbol)
-                self._on_structure_update(symbol, event, candle)
+                if len(builder.segments) < 2:
+                    log.warning(
+                        "LEG_CONFIRMED but builder.segments has only %d entries — "
+                        "skipping draw for %s",
+                        len(builder.segments),
+                        symbol,
+                    )
+                else:
+                    leg = builder.segments[-2]  # stop was appended after leg in _promote_and_stop
+                    self._drawer.on_leg_confirmed(leg, builder.confirmed_legs, symbol)
+                    self._on_structure_update(symbol, event, candle)
             elif event.kind == EventKind.STOP_STARTED:
-                stop = builder.segments[-1]
+                if not builder.segments:
+                    log.warning(
+                        "STOP_STARTED but builder.segments is empty — skipping draw for %s",
+                        symbol,
+                    )
+                else:
+                    stop = builder.segments[-1]
+                    stop_num = sum(1 for s in builder.segments if s.kind == SegmentKind.STOP)
+                    self._drawer.on_stop_started(stop, stop_num, symbol)
+                    self._stop_candle_count[symbol] = stop.n_candles  # track initial stop size
+                    self._on_structure_update(symbol, event, candle)
+
+        # 3b. Update stop rectangle if the active stop grew (only when no break)
+        if not broke:
+            if builder.segments and builder.segments[-1].kind == SegmentKind.STOP:
+                last_stop = builder.segments[-1]
                 stop_num = sum(1 for s in builder.segments if s.kind == SegmentKind.STOP)
-                self._drawer.on_stop_started(stop, stop_num, symbol)
-                self._on_structure_update(symbol, event, candle)
+                prev_count = self._stop_candle_count.get(symbol, 0)
+                if last_stop.n_candles > prev_count:
+                    self._drawer.on_stop_candle(last_stop, stop_num, symbol)
+                    self._stop_candle_count[symbol] = last_stop.n_candles
+            else:
+                self._stop_candle_count[symbol] = 0
+
+        # M2BO check — runs independently of active_watch
+        if not broke and symbol in self.m2bo:
+            _m2bo_signal = self.m2bo[symbol].on_candle(candle)
+            if _m2bo_signal:
+                backfill_end = self._backfill_end_time.get(symbol, 0)
+                if candle.raw_time > backfill_end:
+                    _m2bo_signal = Signal(
+                        symbol=symbol,
+                        direction=_m2bo_signal.direction,
+                        entry_price=_m2bo_signal.entry_price,
+                        reason=_m2bo_signal.reason,
+                        strategy=_m2bo_signal.strategy,
+                        leg_number=_m2bo_signal.leg_number,
+                        sl_override=_m2bo_signal.sl_override,
+                    )
+                    self._execute(_m2bo_signal, symbol, candle)
 
         # 4. Active watch tick — skip if a break reset the builder this candle
         if not broke and symbol in self.active_watch:
             self._tick_watch(symbol, candle)
 
         # 5. Position management
+        had_position = self.positions.has_active_trade(symbol)
+        trade_before = self.positions.get_active_trade(symbol) if had_position else None
         self.positions.on_price(symbol, candle.low, candle.high)
+
+        # 6. Re-evaluate strategies if position just closed
+        if had_position and not self.positions.has_active_trade(symbol):
+            log.info("[POSITION CLOSED] %s — re-evaluating strategies", symbol)
+
+            # Update trade with exit info
+            if trade_before:
+                pnl = self._calculate_pnl(
+                    trade_before.direction,
+                    trade_before.entry_price,
+                    candle.close,
+                    trade_before.main_sl_price,
+                )
+                status = "win" if pnl > 0 else ("loss" if pnl < 0 else "breakeven")
+                self._supervisor_memory.update_trade(
+                    symbol=symbol,
+                    exit_price=candle.close,
+                    exit_time=candle.time,
+                    pnl=pnl,
+                    status=status,
+                )
+            if not broke and symbol not in self.active_watch:
+                builder = self.builders[symbol]
+                for strategy in self.strategies:
+                    for event_kind in (EventKind.LEG_CONFIRMED, EventKind.STOP_STARTED):
+                        probe = StructureEvent(
+                            kind=event_kind,
+                            confirmed_legs=builder.confirmed_legs,
+                        )
+                        watch = strategy.on_structure_event(
+                            probe,
+                            builder.segments,
+                            builder.confirmed_legs,
+                            candle,
+                        )
+                        if watch:
+                            log.info(
+                                "[WATCH ARMED POST-CLOSE] %s strategy=%s mode=%s legs=%d",
+                                symbol, strategy.name, watch.mode, builder.confirmed_legs,
+                            )
+                            self.active_watch[symbol] = (watch, strategy)
+                            break
+                    if symbol in self.active_watch:
+                        break
 
     # ------------------------------------------------------------------
     # Structure break handling
@@ -648,12 +920,47 @@ class CaptainPipsBot:
         legs = [s for s in segments if s.kind == SegmentKind.LEG]
         stops = [s for s in segments if s.kind == SegmentKind.STOP]
 
-        structure_high = max(s.high for s in segments) if segments else candle.high
-        structure_low = min(s.low for s in segments) if segments else candle.low
+        log.info(f"Structure break: symbol={symbol} "
+                 f"stops_count={len(stops)} "
+                 f"breaking_stop_candles={len(stops[-1].candles) if stops else 0} "
+                 f"event={event.kind} "
+                 f"backfilling={self._is_backfilling.get(symbol, False)}")
+
+        # Always reset chart first (both backfill and live breaks)
+        self._drawer.on_structure_reset(symbol)
+
+        # During backfill: just reset and replay, skip side effects
+        if self._is_backfilling.get(symbol, False):
+            replay_candles = list(stops[-1].candles) if stops else []
+            start_idx = replay_candles[0].index if replay_candles else candle.index
+            builder.reset(from_candle_index=start_idx)
+            for rc in replay_candles:
+                builder.process(rc, ema_values=self.ema.get(symbol, []))
+            # Build paradox state during backfill too
+            # Paradox zone: exclude first leg (index 0)
+            segs_for_paradox = segments[1:] if len(segments) > 1 else segments
+            structure_high = max(s.high for s in segs_for_paradox) if segs_for_paradox else candle.high
+            structure_low  = min(s.low  for s in segs_for_paradox) if segs_for_paradox else candle.low
+            self.paradox[symbol].on_break(direction, structure_high, structure_low)
+            if self.paradox[symbol].is_active():
+                self.paradox[symbol].set_activation_index(candle.index)
+            self.m2bo[symbol].on_break(direction, stops, event.confirmed_legs)
+            if self.m2bo[symbol].is_active():
+                self.m2bo[symbol].set_activation_index(candle.index)
+            return
+
+        # Paradox zone: exclude first leg (index 0)
+        segs_for_paradox = segments[1:] if len(segments) > 1 else segments
+        structure_high = max(s.high for s in segs_for_paradox) if segs_for_paradox else candle.high
+        structure_low = min(s.low for s in segs_for_paradox) if segs_for_paradox else candle.low
 
         self.paradox[symbol].on_break(direction, structure_high, structure_low)
         if self.paradox[symbol].is_active():
             self.paradox[symbol].set_activation_index(candle.index)
+        self._broadcast_paradox(symbol)
+        self.m2bo[symbol].on_break(direction, stops, event.confirmed_legs)
+        if self.m2bo[symbol].is_active():
+            self.m2bo[symbol].set_activation_index(candle.index)
 
         self.active_watch.pop(symbol, None)
 
@@ -681,10 +988,13 @@ class CaptainPipsBot:
 
         # Reset builder and replay the breaking movement
         replay_candles = list(stops[-1].candles) if stops else []
+        log.info(f"Replay: {len(replay_candles)} candles "
+                 f"from {replay_candles[0].time if replay_candles else 'none'}")
         start_idx = replay_candles[0].index if replay_candles else candle.index
         builder.reset(from_candle_index=start_idx)
         for rc in replay_candles:
             builder.process(rc, ema_values=self.ema.get(symbol, []))
+        self._broadcast_paradox(symbol)
 
     # ------------------------------------------------------------------
     # Structure update → try arming a watch
@@ -693,10 +1003,26 @@ class CaptainPipsBot:
     def _on_structure_update(
         self, symbol: str, event: StructureEvent, candle: Candle,
     ) -> None:
-        if symbol in self.active_watch:
+        if self.positions.has_active_trade(symbol):
+            log.debug("Skipping watch arm: active position on %s", symbol)
             return
 
         builder = self.builders[symbol]
+
+        if event.kind == EventKind.LEG_CONFIRMED and builder.confirmed_legs >= 2:
+            existing = self.active_watch.get(symbol)
+            if existing and existing[1].name == "Leg2Chain":
+                log.info("[WATCH REPLACED] %s cancelling stale Leg2Chain "
+                         "(confirmed_legs=%d, Leg3Drive gets priority)",
+                         symbol, builder.confirmed_legs)
+                self.active_watch.pop(symbol)
+
+        if symbol in self.active_watch:
+            return
+
+        log.debug(f"Checking strategies for arm: "
+                  f"confirmed_legs={builder.confirmed_legs} "
+                  f"event={event.kind.value}")
         for strategy in self.strategies:
             watch = strategy.on_structure_event(
                 event,
@@ -704,6 +1030,7 @@ class CaptainPipsBot:
                 builder.confirmed_legs,
                 candle,
             )
+            log.debug(f"  {strategy.name}: watch={watch}")
             if watch:
                 log.info(
                     "[WATCH ARMED] %s strategy=%s mode=%s legs=%d",
@@ -721,9 +1048,17 @@ class CaptainPipsBot:
 
     def _tick_watch(self, symbol: str, candle: Candle) -> None:
         watch, strategy = self.active_watch[symbol]
+        old_mode = watch.mode
         signal = strategy.on_candle(candle, watch, self.builders[symbol].segments)
 
         if signal:
+            backfill_end = self._backfill_end_time.get(symbol, 0)
+            if candle.raw_time <= backfill_end:
+                log.debug("[SIGNAL SKIPPED] %s candle_time=%d <= backfill_end=%d "
+                          "keeping watch alive",
+                          symbol, candle.raw_time, backfill_end)
+                return
+
             signal = Signal(
                 symbol=symbol,
                 direction=signal.direction,
@@ -741,7 +1076,7 @@ class CaptainPipsBot:
                 signal.reason,
                 watch.mode,
             )
-            self._execute(signal, symbol)
+            self._execute(signal, symbol, candle)
             self.active_watch.pop(symbol, None)
             return
 
@@ -754,11 +1089,20 @@ class CaptainPipsBot:
             )
             self.active_watch.pop(symbol, None)
 
+        if old_mode != watch.mode:
+            self._broadcast({
+                "type": "watch_update",
+                "symbol": symbol,
+                "strategy": strategy.name,
+                "mode": watch.mode,
+                "active_targets": self._compute_active_targets(symbol),
+            })
+
     # ------------------------------------------------------------------
     # Execution
     # ------------------------------------------------------------------
 
-    def _execute(self, signal: Signal, symbol: str) -> None:
+    def _execute(self, signal: Signal, symbol: str, candle: Candle) -> None:
         log.info(
             "[%s] Signal: %s %s @ %.5f [%s]",
             symbol,
@@ -778,7 +1122,10 @@ class CaptainPipsBot:
             robot_running=self._bot_state.robot_running,
         )
         if not ok:
-            log.warning("[%s] Risk gate blocked: %s", symbol, reason)
+            log.info(f"[RISK BLOCKED] {symbol} reason={reason} "
+                     f"robot_running={self._bot_state.robot_running} "
+                     f"active_count={active_count} "
+                     f"daily_loss={self.daily_loss_pct}")
             return
 
         sc = self._symbol_config(symbol)
@@ -786,7 +1133,41 @@ class CaptainPipsBot:
             log.error("[%s] No symbol config — cannot open trade", symbol)
             return
 
-        opened = self.positions.open_trade(signal, sc, self.account_balance)
+        segments = self.builders[symbol].segments if symbol in self.builders else None
+        if segments:
+            kinds = [s.kind for s in segments]
+            for j in range(len(kinds) - 1):
+                if kinds[j] == kinds[j + 1]:
+                    log.warning(f"[{symbol}] Non-alternating segments detected")
+                    break
+
+        opened = self.positions.open_trade(signal, sc, self.account_balance, segments)
+
+        if opened:
+            log.info(f"[POS1 OPENED] {symbol} direction={signal.direction.value} "
+                     f"entry={signal.entry_price} strategy={signal.strategy}")
+
+            # Record trade to supervisor memory
+            trade = self.positions.get_active_trade(symbol)
+            if trade:
+                self._supervisor_memory.save_trade({
+                    "symbol": symbol,
+                    "direction": signal.direction.value,
+                    "entry_price": signal.entry_price,
+                    "sl_price": trade.main_sl_price,
+                    "strategy": signal.strategy,
+                    "entry_time": candle.time,
+                    "status": "open",
+                })
+
+            # Clear watch from HUD
+            self._broadcast({
+                "type": "watch_update",
+                "symbol": symbol,
+                "strategy": None,
+                "mode": "DONE",
+                "active_targets": [],
+            })
 
         self._broadcast({
             "type": "signal",
@@ -811,9 +1192,24 @@ class CaptainPipsBot:
             self._ema_prev[symbol] = close * k + prev * (1.0 - k)
         self.ema[symbol].append(self._ema_prev[symbol])
 
+    @staticmethod
+    def _calculate_pnl(direction: Direction, entry: float, exit: float, sl: float) -> float:
+        """Calculate PnL in pips (positive for win, negative for loss)."""
+        risk_distance = abs(entry - sl)
+        if risk_distance == 0:
+            return 0.0
+        if direction == Direction.BULL:
+            return (exit - entry) / risk_distance
+        return (entry - exit) / risk_distance
+
+    def _canon(self, symbol: str) -> str:
+        """Return the EA's exact broker spelling for a symbol."""
+        s = symbol.strip()
+        return self._broker_names.get(s.upper(), s)
+
     def _symbol_config(self, symbol: str) -> SymbolConfig | None:
         for sc in self.config.symbols:
-            if sc.symbol == symbol:
+            if sc.symbol.strip().upper() == symbol.strip().upper():
                 return sc
         return None
 
@@ -839,38 +1235,43 @@ class CaptainPipsBot:
 
     def _on_config_reload(self, new_config: Config) -> None:
         """Hot-reload callback from the API when config is saved."""
-        # Capture old session windows before replacing config
-        old_sessions = {sc.symbol: sc.session_start for sc in self.config.enabled_symbols()}
+        # Capture old session windows before replacing config — use canon keys
+        old_sessions = {self._canon(sc.symbol): sc.session_start for sc in self.config.enabled_symbols()}
 
         self.config = new_config
         self.risk.update_config(new_config.risk)
         log.info("Config hot-reloaded from API")
 
         # Remove builders for symbols that are now disabled / removed
-        enabled = {sc.symbol for sc in new_config.enabled_symbols()}
+        enabled_upper = {sc.symbol.strip().upper() for sc in new_config.enabled_symbols()}
         for sym in list(self.builders.keys()):
-            if sym not in enabled:
+            if sym.strip().upper() not in enabled_upper:
                 log.info("Symbol %s removed from config — dropping builder", sym)
                 self.builders.pop(sym, None)
                 self.paradox.pop(sym, None)
+                self.m2bo.pop(sym, None)
                 self.ema.pop(sym, None)
                 self._ema_prev.pop(sym, None)
                 self._candle_index.pop(sym, None)
+                self.active_watch.pop(sym, None)
+                self._stop_candle_count.pop(sym, None)
+                self._active_targets.pop(sym, None)
 
         # Full reset for symbols whose session_start changed
+        session_changed = False
         for sc in new_config.enabled_symbols():
-            sym = sc.symbol
+            sym = self._canon(sc.symbol)
             if old_sessions.get(sym) != sc.session_start:
                 log.info(
                     "Session start changed for %s (%s → %s) — full state reset",
                     sym, old_sessions.get(sym, "?"), sc.session_start,
                 )
-                self.builders[sym] = StructureBuilder()
-                self.paradox[sym] = Paradoxical()
-                self.ema[sym] = []
-                self._ema_prev[sym] = None
-                self._candle_index.pop(sym, None)
-                self.active_watch.pop(sym, None)
+                self._init_symbol_state(sym)
+                session_changed = True
+
+        # Create new session log if session_start changed
+        if session_changed:
+            self._rotate_session_log()
 
         # Clear candle cache so panel fetches fresh data after config change
         self._recent_candles = {}
@@ -882,6 +1283,37 @@ class CaptainPipsBot:
             log.info("Starting backfill after config reload")
             for sc in new_config.enabled_symbols():
                 self._backfill_symbol(sc, self._broker_now_ts)
+
+    def _compute_active_targets(self, symbol: str) -> list[str]:
+        """Compute which condition chips should be lit for a symbol."""
+        targets: list[str] = []
+        builder = self.builders.get(symbol)
+        if builder and builder.confirmed_legs >= 1:
+            targets.append("St")
+        watch_entry = self.active_watch.get(symbol)
+        if watch_entry:
+            w, _ = watch_entry
+            if w.mode == "B":
+                targets.append("F")
+            else:
+                targets.append("B")
+        return targets
+
+    def _broadcast_paradox(self, symbol: str) -> None:
+        p = self.paradox[symbol]
+        self._broadcast({
+            "type": "paradox",
+            "symbol": symbol,
+            "active": p.active,
+            "upper": p.upper,
+            "lower": p.lower,
+            "breaks": [r[0].value for r in p.break_history],
+        })
+        # Update MT5 chart lines
+        if p.active and p.upper is not None and p.lower is not None:
+            self._drawer.on_paradox_zone(p.upper, p.lower, symbol)
+        else:
+            self._drawer.on_paradox_clear(symbol)
 
     def _broadcast(self, payload: dict) -> None:
         """Thread-safe broadcast to all WebSocket clients."""

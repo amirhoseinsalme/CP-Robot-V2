@@ -177,6 +177,7 @@ class Signal:
     reason: str
     strategy: str
     leg_number: int
+    sl_override: float | None = None
 
 
 # ---------------------------------------------------------------------------

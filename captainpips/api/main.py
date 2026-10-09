@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -21,6 +24,8 @@ from pydantic import BaseModel
 
 from captainpips.config import Config, RiskConfig, SymbolConfig
 from captainpips.api.backtest import router as backtest_router
+from captainpips.api.supervisor import get_monitor
+from captainpips.api.supervisor import router as supervisor_router
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +114,10 @@ _manager = ConnectionManager()
 async def lifespan(app: FastAPI):
     _bot_state.ws_broadcast = _manager
     log.info("API server started — WebSocket manager ready")
+    monitor = get_monitor()
+    monitor.start_background()
     yield
+    monitor.stop()
     log.info("API server shutting down")
 
 
@@ -134,6 +142,7 @@ app.mount(
 )
 
 app.include_router(backtest_router)
+app.include_router(supervisor_router)
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +179,23 @@ def panel_logs() -> HTMLResponse:
         return HTMLResponse(content="<h1>Logs page not found</h1>", status_code=404)
 
 
+@app.get("/hud", response_class=HTMLResponse)
+def panel_hud() -> HTMLResponse:
+    path = "captainpips/panel/templates/hud.html"
+    try:
+        with open(path, encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>HUD not found</h1>", status_code=404)
+
+
+@app.post("/api/hud/launch")
+def launch_hud() -> dict:
+    hud_path = os.path.join(os.path.dirname(__file__), '..', 'hud', 'app.py')
+    subprocess.Popen([sys.executable, hud_path])
+    return {"status": "launched"}
+
+
 @app.get("/backtest", response_class=HTMLResponse)
 def panel_backtest() -> HTMLResponse:
     path = "captainpips/panel/templates/backtest.html"
@@ -178,6 +204,16 @@ def panel_backtest() -> HTMLResponse:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return HTMLResponse(content="<h1>Backtest page not found</h1>", status_code=404)
+
+
+@app.get("/supervisor", response_class=HTMLResponse)
+def panel_supervisor() -> HTMLResponse:
+    path = "captainpips/panel/templates/supervisor.html"
+    try:
+        with open(path, encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Supervisor page not found</h1>", status_code=404)
 
 
 # ---------------------------------------------------------------------------
@@ -214,9 +250,12 @@ class MessageResponse(BaseModel):
 # Config routes
 # ---------------------------------------------------------------------------
 
-@app.get("/api/config", response_model=Config)
-def get_config(state: BotState = Depends(get_state)) -> Config:
-    return state.config
+@app.get("/api/config")
+def get_config(state: BotState = Depends(get_state)) -> dict:
+    data = state.config.model_dump()
+    enabled = state.config.enabled_symbols()
+    data["session_start"] = enabled[0].session_start if enabled else "00:00"
+    return data
 
 
 @app.post("/api/config", response_model=Config)
@@ -423,6 +462,13 @@ async def ws_monitor(ws: WebSocket) -> None:
     """
     await _manager.connect(ws)
     log.info("WS client connected (%d total)", len(_manager))
+    try:
+        # Send initial state so client knows session_start immediately
+        enabled = _bot_state.config.enabled_symbols()
+        session_start = enabled[0].session_start if enabled else "00:00"
+        await ws.send_json({"type": "hello", "session_start": session_start})
+    except Exception:
+        pass
     try:
         while True:
             # Keep connection alive; client may send pings

@@ -11,7 +11,7 @@ import json
 import logging
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 log = logging.getLogger(__name__)
 
@@ -60,8 +60,16 @@ class TpConfig(BaseModel):
 class Position2Config(BaseModel):
     enabled: bool = True
     risk_pct: float = 1.0
-    sl_pips: float = 60.0
+    sl_pips: float = 0.0             # 0 = breakeven (entry price)
+    tp_r: float = 0.5                # R multiplier for TP (default same as pos1)
     entry_r: float = 0.25            # open pos2 when pos1 reaches +0.25R
+
+    @field_validator('tp_r')
+    @classmethod
+    def validate_tp_r(cls, v):
+        if not 0 < v <= 2.0:
+            raise ValueError('pos2 tp_r must be between 0 and 2.0')
+        return v
 
 
 class RiskConfig(BaseModel):
@@ -80,7 +88,8 @@ class PositionConfig(BaseModel):
     position1_multiplier: float = 0.5
     position2_multiplier: float = 3.0
     reentry_multiplier: float = 0.5
-    enable_pos2_loss_floor: bool = False
+    enable_pos2_loss_floor: bool = True
+    direct_fail_exit: bool = True
 
 
 class AppConfig(BaseModel):

@@ -46,6 +46,12 @@ class PositionManager:
         self._sizer = PositionSizer()
         self._trades: dict[str, ActiveTrade] = {}
         self._magic_counter = 0
+        self._cached_balance: float = 0.0  # Updated by update_balance() on every account tick
+
+    def update_balance(self, balance: float) -> None:
+        """Store latest account balance for position sizing."""
+        if balance > 0:
+            self._cached_balance = balance
 
     # -----------------------------------------------------------------------
     # Trade opening
@@ -111,13 +117,17 @@ class PositionManager:
             return False
 
         ticket = reply.get("ticket")
-        log.info("Position 1 opened: %s ticket=%s lot=%.2f", sym, ticket, lot)
+        log.info(f"[POS1 OPENED] {sym} ticket={ticket} "
+                 f"direction={signal.direction.value} "
+                 f"entry={signal.entry_price} sl={sl_price} tp={tp_price} "
+                 f"lot={lot}")
 
         sm = TradeStateMachine(
             entry_price=signal.entry_price,
             main_sl_price=sl_price,
             direction=signal.direction,
             enable_pos2_loss_floor=self._cfg.position.enable_pos2_loss_floor,
+            direct_fail_exit=self._cfg.position.direct_fail_exit,
         )
 
         self._trades[sym] = ActiveTrade(
@@ -191,6 +201,13 @@ class PositionManager:
             handler(trade)
 
     def _on_pos2_added(self, trade: ActiveTrade) -> None:
+        log.info(f"[POS2 DISPATCH] symbol={trade.symbol} event=POSITION2_ADDED")
+
+        sm = trade.state_machine
+        log.info(f"[POS2 TRIGGER] {trade.symbol} "
+                 f"adverse_before={sm._adverse_before_pos2} "
+                 f"touched_pos={sm._touched_positive}")
+
         sc = self._symbol_config(trade.symbol)
         if sc is None:
             return
@@ -201,19 +218,34 @@ class PositionManager:
             log.warning("pos2: sized to zero for %s — skipping", trade.symbol)
             return
 
+        # Calculate pos2 SL from config: if sl_pips==0 use entry (breakeven), else offset from entry
+        pos2_sl_pips = self._cfg.risk.position2.sl_pips
+        if pos2_sl_pips == 0.0:
+            pos2_sl = trade.entry_price
+        else:
+            distance = pos2_sl_pips * sc.pip_value
+            if trade.direction == Direction.BULL:
+                pos2_sl = trade.entry_price - distance
+            else:
+                pos2_sl = trade.entry_price + distance
+
         order_type = "BUY" if trade.direction == Direction.BULL else "SELL"
+        log.info(f"[POS2 ORDER SENT] {trade.symbol} direction={trade.direction.value} "
+                 f"lot={lot} sl={pos2_sl}")
         reply = self._zmq.send_order(
             action="OPEN",
             symbol=trade.symbol,
             order_type=order_type,
-            sl=trade.main_sl_price,
+            sl=pos2_sl,
             tp=0,
             lot=lot,
             magic=trade.magic,
         )
         if reply and reply.get("status") == "success":
             trade.pos2_ticket = reply.get("ticket")
-            log.info("Position 2 opened: %s ticket=%s", trade.symbol, trade.pos2_ticket)
+            log.info(f"[POS2 OPENED] {trade.symbol} ticket={trade.pos2_ticket} "
+                     f"entry={trade.entry_price} sl={pos2_sl} "
+                     f"lot={lot}")
         else:
             log.error("pos2: EA rejected order for %s: %s", trade.symbol, reply)
 
@@ -293,7 +325,7 @@ class PositionManager:
         sl_dist = abs(trade.entry_price - trade.main_sl_price)
         try:
             return self._sizer.calculate(
-                account_balance=0.0,    # caller should inject current balance;
+                account_balance=self._cached_balance,
                 risk_pct=self._cfg.risk.risk_pct,
                 sl_distance=sl_dist,
                 tick_size=sc.tick_size,
@@ -329,6 +361,10 @@ def _sl_price(
     risk_cfg: RiskConfig,
     segments: list[Segment] | None = None,
 ) -> float:
+    if signal.sl_override is not None:
+        log.info("_sl_price: using sl_override=%.5f for %s", signal.sl_override, signal.symbol)
+        return signal.sl_override
+
     sl_cfg = risk_cfg.sl
     if sl_cfg.type == "structural" and segments:
         strategy = signal.strategy
@@ -341,10 +377,24 @@ def _sl_price(
         stops = [s for s in segments if s.kind == SegmentKind.STOP]
         if key == "leg1_extreme" and legs:
             seg = legs[0]
-            return seg.low if signal.direction == Direction.BULL else seg.high
+            sl_price = seg.low if signal.direction == Direction.BULL else seg.high
+            log.info(f"Structural SL: strategy={signal.strategy} "
+                     f"direction={signal.direction} "
+                     f"sl_key={key} "
+                     f"legs={[(s.high, s.low) for s in legs[:2]]} "
+                     f"stops={[(s.high, s.low) for s in stops[:2]]} "
+                     f"sl_price={sl_price}")
+            return sl_price
         if key == "stop1_extreme" and stops:
             seg = stops[0]
-            return seg.low if signal.direction == Direction.BULL else seg.high
+            sl_price = seg.low if signal.direction == Direction.BULL else seg.high
+            log.info(f"Structural SL: strategy={signal.strategy} "
+                     f"direction={signal.direction} "
+                     f"sl_key={key} "
+                     f"legs={[(s.high, s.low) for s in legs[:2]]} "
+                     f"stops={[(s.high, s.low) for s in stops[:2]]} "
+                     f"sl_price={sl_price}")
+            return sl_price
         log.warning(
             "_sl_price: structural SL unavailable for %s (key=%s, legs=%d, stops=%d) — using fixed",
             signal.symbol, key, len(legs), len(stops),

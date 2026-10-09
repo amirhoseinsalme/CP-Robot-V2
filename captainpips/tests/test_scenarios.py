@@ -88,6 +88,70 @@ def run_scenario(name, rows, expected_legs, expected_direction):
 
 
 # ─────────────────────────────────────────────────────────
+# Runner: scenario with detailed segment validation
+# ─────────────────────────────────────────────────────────
+def run_scenario_with_segments(name, rows, expected_legs, expected_direction,
+                                expected_segments):
+    from captainpips.core.structure_rules import StructurePoints
+    from captainpips.core.definitions import SegmentKind
+
+    print(f"\n{'='*60}")
+    print(f"SCENARIO: {name}")
+    print(f"{'='*60}")
+
+    candles = make_candles(rows)
+    builder = StructureBuilder()
+    for c in candles:
+        builder.process(c)
+
+    ok = True
+
+    # Check confirmed_legs and direction
+    if builder.confirmed_legs != expected_legs:
+        print(f"  FAIL legs: expected={expected_legs} got={builder.confirmed_legs}")
+        ok = False
+    if builder.direction.value.upper() != expected_direction.upper():
+        print(f"  FAIL dir: expected={expected_direction} got={builder.direction}")
+        ok = False
+
+    # Check each segment
+    segs = builder.segments
+    for idx, exp in enumerate(expected_segments):
+        if idx >= len(segs):
+            print(f"  FAIL: missing segment {idx}")
+            ok = False
+            break
+        seg = segs[idx]
+        if exp["kind"] == "LEG":
+            next_stop = segs[idx+1] if idx+1 < len(segs) and segs[idx+1].kind == SegmentKind.STOP else None
+            A = StructurePoints.leg_start(seg)
+            B = StructurePoints.leg_endpoint(seg)
+            leg_num = sum(1 for s in segs[:idx+1] if s.kind == SegmentKind.LEG)
+            print(f"  LEG {leg_num}: A={A} B={B}")
+            if abs(A - exp["A"]) > 0.1:
+                print(f"    FAIL A: expected={exp['A']} got={A}")
+                ok = False
+            if abs(B - exp["B"]) > 0.1:
+                print(f"    FAIL B: expected={exp['B']} got={B}")
+                ok = False
+        else:
+            stop_num = sum(1 for s in segs[:idx+1] if s.kind == SegmentKind.STOP)
+            print(f"  STOP {stop_num}: H={seg.high} L={seg.low}")
+            if abs(seg.high - exp["high"]) > 0.1:
+                print(f"    FAIL H: expected={exp['high']} got={seg.high}")
+                ok = False
+            if abs(seg.low - exp["low"]) > 0.1:
+                print(f"    FAIL L: expected={exp['low']} got={seg.low}")
+                ok = False
+
+    if ok:
+        print(f"\n  PASS")
+    else:
+        print(f"\n  FAIL")
+    return ok
+
+
+# ─────────────────────────────────────────────────────────
 # Runner: structure break scenarios
 # ─────────────────────────────────────────────────────────
 def run_break_scenario(name, rows,
@@ -791,10 +855,63 @@ def run_all():
     results = []
 
     # 1-4: basic leg/stop structure
-    results.append(run_scenario("3 Legs Bull (17:25-17:33)", scenario_1, 3, "BULL"))
-    results.append(run_scenario("4 Legs Bear (18:01-18:23)", scenario_2, 4, "BEAR"))
-    results.append(run_scenario("3 Legs Bull (18:24-18:41)", scenario_3, 3, "BULL"))
-    results.append(run_scenario("5 Legs Bear (11:30-11:54)", scenario_4, 5, "BEAR"))
+    results.append(run_scenario_with_segments(
+        "3 Legs Bull (17:25-17:33)",
+        scenario_1, 3, "BULL",
+        [
+            {"kind": "LEG",  "A": 52382, "B": 52445},
+            {"kind": "STOP", "high": 52445, "low": 52419},
+            {"kind": "LEG",  "A": 52435, "B": 52521},
+            {"kind": "STOP", "high": 52521, "low": 52499},
+            {"kind": "LEG",  "A": 52492, "B": 52532},
+            {"kind": "STOP", "high": 52530, "low": 52503},
+        ]
+    ))
+
+    results.append(run_scenario_with_segments(
+        "4 Legs Bear (18:01-18:23)",
+        scenario_2, 4, "BEAR",
+        [
+            {"kind": "LEG",  "A": 52556, "B": 52443},
+            {"kind": "STOP", "high": 52461, "low": 52443},
+            {"kind": "LEG",  "A": 52453, "B": 52422},
+            {"kind": "STOP", "high": 52450, "low": 52422},
+            {"kind": "LEG",  "A": 52442, "B": 52361},
+            {"kind": "STOP", "high": 52416, "low": 52361},
+            {"kind": "LEG",  "A": 52378, "B": 52339},
+            {"kind": "STOP", "high": 52354, "low": 52339},
+        ]
+    ))
+
+    results.append(run_scenario_with_segments(
+        "3 Legs Bull (18:24-18:41)",
+        scenario_3, 3, "BULL",
+        [
+            {"kind": "LEG",  "A": 52341, "B": 52393},
+            {"kind": "STOP", "high": 52393, "low": 52370},
+            {"kind": "LEG",  "A": 52388, "B": 52417},
+            {"kind": "STOP", "high": 52417, "low": 52380},
+            {"kind": "LEG",  "A": 52385, "B": 52479},
+            {"kind": "STOP", "high": 52479, "low": 52396},
+        ]
+    ))
+
+    results.append(run_scenario_with_segments(
+        "5 Legs Bear (11:30-11:54)",
+        scenario_4, 5, "BEAR",
+        [
+            {"kind": "LEG",  "A": 52596, "B": 52561},
+            {"kind": "STOP", "high": 52573, "low": 52561},
+            {"kind": "LEG",  "A": 52578, "B": 52556},
+            {"kind": "STOP", "high": 52563, "low": 52557},
+            {"kind": "LEG",  "A": 52567, "B": 52533},
+            {"kind": "STOP", "high": 52549, "low": 52533},
+            {"kind": "LEG",  "A": 52546, "B": 52520},
+            {"kind": "STOP", "high": 52534, "low": 52520},
+            {"kind": "LEG",  "A": 52531, "B": 52514},
+            {"kind": "STOP", "high": 52530, "low": 52516},
+        ]
+    ))
 
     # 5-6: structure break
     results.append(run_break_scenario(

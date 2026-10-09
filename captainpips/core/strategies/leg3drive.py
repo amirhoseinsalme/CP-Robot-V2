@@ -273,11 +273,9 @@ def _d_beyond_b(segments: list[Segment], direction: Direction) -> bool:
         return False
 
     leg1, leg2 = legs[0], legs[1]
-    stop1 = stops[0]
-    stop2 = stops[1] if len(stops) >= 2 else None
 
-    point_b = StructurePoints.leg_endpoint(leg1, stop1)
-    point_d = StructurePoints.leg_endpoint(leg2, stop2)
+    point_b = StructurePoints.leg_endpoint(leg1)
+    point_d = StructurePoints.leg_endpoint(leg2)
 
     if direction == Direction.BULL:
         return point_d > point_b

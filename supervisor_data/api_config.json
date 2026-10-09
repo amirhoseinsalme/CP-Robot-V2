@@ -1,0 +1,6 @@
+{
+  "provider": "anthropic",
+  "model": "CLAUDE_OPUS_4_8",
+  "api_key": "pmai_49qFXVg5PJlzeBScqM2Yjd9_9VtVDgO1ijSIdYsxXO8",
+  "base_url": "https://api.jarvis.you"
+}

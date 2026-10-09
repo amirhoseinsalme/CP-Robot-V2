@@ -6,6 +6,8 @@ Imports only from definitions — no strategy logic, no signals, no connectors.
 
 from __future__ import annotations
 
+import logging
+
 from captainpips.core.definitions import (
     ALWAYS_STOP_LABELS,
     FRESH_STOP_LABELS,
@@ -15,6 +17,8 @@ from captainpips.core.definitions import (
     Segment,
     SegmentKind,
 )
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -70,37 +74,29 @@ class StructurePoints:
 
     @staticmethod
     def leg_start(leg: Segment, prev_stop: Segment | None = None) -> float:
-        """Starting price of a leg (Point A).
+        """Starting price of a leg (Point A/C/E).
 
-        When *prev_stop* is provided its extreme is folded in — same-direction
-        S/L/D/J candles in the preceding stop can define a more extreme origin.
+        Uses the FIRST candle's extreme — the geometric starting point
+        of the leg — not the minimum/maximum across all candles.
+        Folding in prev_stop covers the case where the stop's deepest
+        retracement is slightly more extreme than the leg's first candle.
         """
         if leg.direction == Direction.BULL:
-            base = min(c.low for c in leg.candles)
+            base = leg.candles[0].low  # first candle's low = leg start point
             if prev_stop:
                 base = min(base, prev_stop.low)
             return base
-        base = max(c.high for c in leg.candles)
+        base = leg.candles[0].high  # first candle's high = leg start point
         if prev_stop:
             base = max(base, prev_stop.high)
         return base
 
     @staticmethod
-    def leg_endpoint(
-        leg: Segment,
-        next_stop: Segment | None = None,
-    ) -> float:
-        """
-        Furthest price reached by a leg (Point B / D).
-
-        Uses the full stop extreme so that all candles in the
-        following stop contribute to the leg endpoint.
-        """
+    def leg_endpoint(leg: Segment) -> float:
+        """Furthest price reached by a leg (Point B)."""
         if leg.direction == Direction.BULL:
-            stop_ext = next_stop.high if next_stop else 0.0
-            return max(leg.high, stop_ext)
-        stop_ext = next_stop.low if next_stop else float("inf")
-        return min(leg.low, stop_ext)
+            return max(c.high for c in leg.candles)
+        return min(c.low for c in leg.candles)
 
     @staticmethod
     def stop_breach(stop: Segment) -> float:
@@ -161,10 +157,9 @@ class LegCounter:
             prev_leg = legs[i - 1]
             curr_leg = legs[i]
             between_stop = stops[i - 1]
-            next_stop = stops[i] if i < len(stops) else None
 
-            prev_end = StructurePoints.leg_endpoint(prev_leg, between_stop)
-            curr_end = StructurePoints.leg_endpoint(curr_leg, next_stop)
+            prev_end = StructurePoints.leg_endpoint(prev_leg)
+            curr_end = StructurePoints.leg_endpoint(curr_leg)
             prev_leg_prev_stop = stops[i - 2] if i >= 2 else None
             prev_start = StructurePoints.leg_start(prev_leg, prev_leg_prev_stop)
 
@@ -177,10 +172,10 @@ class LegCounter:
             else:
                 break
 
-            print(f"  [LegCounter] i={i} curr_end={curr_end:.0f} prev_end={prev_end:.0f} "
-                  f"staircase={staircase} nested={nested} "
-                  f"stop_high={between_stop.high:.0f} stop_low={between_stop.low:.0f} "
-                  f"prev_start={prev_start:.0f}")
+            log.debug(f"  [LegCounter] i={i} curr_end={curr_end:.0f} prev_end={prev_end:.0f} "
+                      f"staircase={staircase} nested={nested} "
+                      f"stop_high={between_stop.high:.0f} stop_low={between_stop.low:.0f} "
+                      f"prev_start={prev_start:.0f}")
 
             if staircase and nested:
                 confirmed += 1

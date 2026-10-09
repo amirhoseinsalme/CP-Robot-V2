@@ -75,6 +75,7 @@ class StructureBuilder:
         ema_values: list[float] | None = None,
     ) -> list[StructureEvent]:
         """Process one candle and return any structural events."""
+        old_direction = self.direction
         self.all_candles.append(candle)
         log.debug(
             "process(): segments=%d last=%s candidate=%s candle=%s %s",
@@ -91,6 +92,11 @@ class StructureBuilder:
         else:
             events = self._handle_stop_active(candle)
 
+        if self.direction != old_direction:
+            log.info(f"Direction changed: {old_direction} → {self.direction} "
+                     f"candle={candle.label.value} {candle.structure_direction} "
+                     f"time={candle.time} segments={len(self.segments)}")
+
         events.extend(self._check_breaks(ema_values))
         return events
 
@@ -98,7 +104,7 @@ class StructureBuilder:
         """Clear all state. Used after a structure break."""
         self.segments.clear()
         self.candidate.clear()
-        self.all_candles.clear()
+        # self.all_candles.clear()  ← DO NOT clear; ShiftScorer needs full history
         self.direction = None
         self.confirmed_legs = 0
         self.start_index = from_candle_index
@@ -121,8 +127,14 @@ class StructureBuilder:
             return []
 
         if candle.label in ALWAYS_STOP_LABELS:
-            if self.candidate and LegValidator.is_valid_leg(self.candidate):
-                return self._promote_and_stop(candle)
+            if self.candidate:
+                is_valid = LegValidator.is_valid_leg(self.candidate)
+                log.debug(f"Fresh ALWAYS_STOP promotion attempt: "
+                          f"candidate={[c.label.value for c in self.candidate]} "
+                          f"is_valid={is_valid} "
+                          f"candle={candle.label.value} {candle.time}")
+                if is_valid:
+                    return self._promote_and_stop(candle)
             self.candidate.clear()
             self.direction = None
             return []
@@ -203,21 +215,14 @@ class StructureBuilder:
         prev_legs = [s for s in self.segments if s.kind == SegmentKind.LEG]
         if prev_legs:
             prev_leg = prev_legs[-1]
-            stops = [s for s in self.segments if s.kind == SegmentKind.STOP]
-            between_stop = stops[-1] if stops else None
-            prev_end = StructurePoints.leg_endpoint(prev_leg, between_stop)
+            prev_end = StructurePoints.leg_endpoint(prev_leg)
 
             temp_leg = Segment(
                 kind=SegmentKind.LEG,
                 direction=self.direction,
                 candles=list(self.candidate),
             )
-            temp_stop = Segment(
-                kind=SegmentKind.STOP,
-                direction=self.direction,
-                candles=[trigger],
-            )
-            curr_end = StructurePoints.leg_endpoint(temp_leg, temp_stop)
+            curr_end = StructurePoints.leg_endpoint(temp_leg)
 
             if self.direction == Direction.BULL:
                 passes = curr_end > prev_end

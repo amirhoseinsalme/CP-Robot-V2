@@ -10,9 +10,12 @@ Imports only from definitions.
 
 from __future__ import annotations
 
+import logging
 from enum import Enum, auto
 
 from captainpips.core.definitions import Direction
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -73,13 +76,18 @@ class TradeStateMachine:
         main_sl_price: float,
         direction: Direction,
         enable_pos2_loss_floor: bool = False,
+        pos2_tp_r: float = 0.50,
+        direct_fail_exit: bool = True,
     ) -> None:
         self._entry = entry_price
         self._sl = main_sl_price
         self._direction = direction
         self._risk = abs(entry_price - main_sl_price)
         self._enable_pos2_loss_floor = enable_pos2_loss_floor
+        self._pos2_tp_r = pos2_tp_r
+        self._direct_fail_exit = direct_fail_exit
         self._adverse_before_pos2 = False
+        self._touched_positive = False
         self.state = TradeState.INITIAL_MONITORING
 
     # -----------------------------------------------------------------------
@@ -130,11 +138,26 @@ class TradeStateMachine:
         """
         Adverse first: a wipeout on the same bar as a +0.25R spike resolves
         as FULL_FAIL, not as a pos-2 add followed by a loss.
+
+        direct_fail_exit: if enabled and price never moved positive (above
+        entry), exit immediately at -0.5R instead of waiting for re-entry.
         """
         adv = self._adverse_r(lo, hi)
         fav = self._favorable_r(lo, hi)
 
+        log.debug(f"State tick: fav={fav:.3f}R adv={adv:.3f}R "
+                  f"touched_pos={self._touched_positive} "
+                  f"adverse_before_pos2={self._adverse_before_pos2} "
+                  f"bar_high={hi} bar_low={lo} "
+                  f"entry={self._entry} risk={self._risk}")
+
+        if fav > 0:
+            self._touched_positive = True
+
         if adv <= _R_FULL_FAIL:
+            if self._direct_fail_exit and not self._touched_positive:
+                self.state = TradeState.FINISHED
+                return [TradeEvent.FULL_FAIL_EXIT]
             self.state = TradeState.FAILED_WAIT_REENTRY
             return [TradeEvent.FULL_FAIL_EXIT]
 
@@ -145,7 +168,14 @@ class TradeStateMachine:
             self.state = TradeState.FINISHED
             return [TradeEvent.POSITION1_CLOSE_TP]
 
+        log.debug(f"Pos2 check: fav={fav:.3f}R >= {_R_ADD_POS2}R "
+                  f"adverse_before={self._adverse_before_pos2}")
+
         if fav >= _R_ADD_POS2 and not self._adverse_before_pos2:
+            log.info(f"[POS2 TRIGGER HIT] fav={fav:.3f}R "
+                     f"adverse_before={self._adverse_before_pos2} "
+                     f"touched_pos={self._touched_positive} "
+                     f"entry={self._entry} risk={self._risk}")
             self.state = TradeState.POS2_ACTIVE
             return [TradeEvent.POSITION2_ADDED]
 
@@ -157,11 +187,12 @@ class TradeStateMachine:
     def _handle_pos2_active(self, lo: float, hi: float) -> list[TradeEvent]:
         """
         Favorable first — TP takes priority over a same-bar BE pullback.
+        Uses configurable pos2_tp_r instead of hardcoded _R_TP.
         """
         fav = self._favorable_r(lo, hi)
         adv = self._adverse_r(lo, hi)
 
-        if fav >= _R_TP:
+        if fav >= self._pos2_tp_r:
             self.state = TradeState.FINISHED
             return [TradeEvent.POSITION1_CLOSE_TP]
 
@@ -201,7 +232,13 @@ class TradeStateMachine:
         adv = self._adverse_r(lo, hi)
         fav = self._favorable_r(lo, hi)
 
+        if fav > 0:
+            self._touched_positive = True
+
         if adv <= _R_FULL_FAIL:
+            if self._direct_fail_exit and not self._touched_positive:
+                self.state = TradeState.FINISHED
+                return [TradeEvent.FULL_FAIL_EXIT]
             self.state = TradeState.FAILED_WAIT_REENTRY
             return [TradeEvent.FULL_FAIL_EXIT]
 

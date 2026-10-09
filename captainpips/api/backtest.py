@@ -51,6 +51,7 @@ async def run_backtest(
         "profit_factor": round(result.profit_factor, 2),
         "final_balance": round(result.final_balance, 2),
         "equity_curve": result.equity_curve,
+        "by_strategy": result.by_strategy,
         "trades": [
             {
                 "strategy": t.strategy,
@@ -60,6 +61,7 @@ async def run_backtest(
                 "sl_price": t.sl_price,
                 "tp_price": t.tp_price,
                 "lot": t.lot,
+                "is_pos2": t.is_pos2,
                 "exit_price": t.exit_price,
                 "exit_time": t.exit_time,
                 "exit_reason": t.exit_reason,

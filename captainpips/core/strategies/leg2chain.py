@@ -14,9 +14,13 @@ Mode B:  activated when an opposite-by-close candle is seen in the
 
 from __future__ import annotations
 
+import logging
+
 from captainpips.core.definitions import Candle, Direction, Segment, SegmentKind, Signal
 from captainpips.core.structure_state import EventKind, StructureEvent
 from captainpips.core.strategies.base import BaseStrategy, EntryWatch
+
+log = logging.getLogger(__name__)
 
 
 class Leg2Chain(BaseStrategy):
@@ -62,6 +66,11 @@ class Leg2Chain(BaseStrategy):
     ) -> Signal | None:
         direction = watch.trigger_direction
         prev_candle = watch.prev_candle
+
+        log.debug(f"Leg2Chain tick: mode={watch.mode} "
+                  f"candle={candle.label.value} "
+                  f"pending_bo_index={watch.pending_bo_index} "
+                  f"prev_candle={'yes' if prev_candle else 'no'}")
 
         result: Signal | None = None
 

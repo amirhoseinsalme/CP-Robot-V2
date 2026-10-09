@@ -97,6 +97,7 @@ class ShiftScorer:
         """
         # Breaking stop moves OPPOSITE to structure direction
         direction = Direction.BULL if breaking_stop.direction == Direction.BEAR else Direction.BEAR
+        log.debug(f"Shift: structure_dir={breaking_stop.direction} check_direction={direction}")
         legs = [s for s in segments if s.kind == SegmentKind.LEG]
         stops = [s for s in segments if s.kind == SegmentKind.STOP]
 
@@ -112,7 +113,7 @@ class ShiftScorer:
         f_closegap = self._check_closegap(breaking_stop, direction)
         g_size = self._check_size(breaking_stop, prev_stops)
         h_gapfill = self._check_gapfill(breaking_stop, legs, all_candles, direction)
-        i_3cgap = self._check_3cgap(all_candles, direction)
+        i_3cgap = self._check_3cgap(breaking_stop, all_candles, direction)
 
         log.debug(
             "Shift elements: a=%s b=%s c=%s d=%s e=%s f=%s g=%s h=%s i=%s",
@@ -174,6 +175,11 @@ class ShiftScorer:
         """
         stop_start = stop.candles[0].raw_time
         stop_end = stop.candles[-1].raw_time
+
+        log.debug(f"stop_start={stop_start} stop_end={stop_end} "
+                  f"all_candles_count={len(all_candles)} "
+                  f"first_raw={all_candles[0].raw_time if all_candles else 'empty'} "
+                  f"last_raw={all_candles[-1].raw_time if all_candles else 'empty'}")
 
         filtered: list[Direction] = []
         filtered_candles: list[Candle] = []
@@ -370,58 +376,32 @@ class ShiftScorer:
 
     @staticmethod
     def _check_3cgap(
+        stop: Segment,
         all_candles: list[Candle],
         direction: Direction,
     ) -> bool:
         """
-        i — 3 consecutive candles where the extremes don't overlap.
+        i — 3 consecutive candles where the extremes don't overlap,
+        scanned only within the breaking stop's time range.
 
         Bull: high[0] < low[2]  (price jumped up so far that candle 0's
               high is below candle 2's low — no overlap).
         Bear: low[0] > high[2]  (price dropped so far that candle 0's
               low is above candle 2's high — no overlap).
-
-        Scans the tail of all_candles for the most recent occurrence.
         """
-        if len(all_candles) < 3:
+        stop_start = stop.candles[0].raw_time
+        stop_end = stop.candles[-1].raw_time
+        stop_candles = [c for c in all_candles
+                        if stop_start <= c.raw_time <= stop_end]
+
+        if len(stop_candles) < 3:
             return False
 
-        for i in range(len(all_candles) - 2):
-            c0, c2 = all_candles[i], all_candles[i + 2]
+        for i in range(len(stop_candles) - 2):
+            c0, c2 = stop_candles[i], stop_candles[i + 2]
             if direction == Direction.BULL and c0.high < c2.low:
                 return True
             if direction == Direction.BEAR and c0.low > c2.high:
                 return True
 
         return False
-
-
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
-
-def _candle_bias(c: Candle) -> Direction:
-    """
-    Directional bias for Double-pattern scanning.
-
-    P/R: bull if lower shadow > upper shadow, bear otherwise.
-    All others: bull if close > open, bear if close < open.
-    """
-    if c.label in (CandleLabel.P, CandleLabel.R):
-        lower_shadow = min(c.open, c.close) - c.low
-        upper_shadow = c.high - max(c.open, c.close)
-        return Direction.BULL if lower_shadow > upper_shadow else Direction.BEAR
-
-    if c.close > c.open:
-        return Direction.BULL
-    if c.close < c.open:
-        return Direction.BEAR
-    return Direction.NONE
-
-
-def _candle_before(target: Candle, all_candles: list[Candle]) -> Candle | None:
-    """Return the candle immediately before *target* in the full history."""
-    for i, c in enumerate(all_candles):
-        if c.index == target.index and i > 0:
-            return all_candles[i - 1]
-    return None

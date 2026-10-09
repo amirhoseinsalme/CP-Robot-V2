@@ -1,0 +1,72 @@
+[
+  {
+    "id": "lesson_001",
+    "title": "Candle Classification - Decision Tree Labels",
+    "category": "classification",
+    "content": "The classifier produces 10 labels: C, N, B, P, J, R, L, S, WR, WB.\n\nFeature computation from OHLC:\n```python\nrng = high - low\nbody = abs(close - open_price) / rng * 100.0\nupper = (high - max(open_price, close)) / rng * 100.0\nlower = (min(open_price, close) - low) / rng * 100.0\ndom = max(upper, lower)\ncounter = min(upper, lower)\nratio = dom / (counter + 0.1)\np_dir = (bull and lower > upper) or (not bull and upper > lower)\nr_dir = not p_dir\n```\n\nZero-range candle (rng <= 0) → J.\nbody < 0.5 → J.\n\nDirection rules:\n- J → NONE (no direction)\n- All others: BULL if close >= open, BEAR if close < open\n- D is treated identically to J by downstream code\n- P/R shadow rule: p_dir = True when dominant shadow points WITH the close direction",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_002",
+    "title": "Candle Label Sets - Which Labels Go Where",
+    "category": "classification",
+    "content": "Three label sets control segment building:\n\nALWAYS_STOP_LABELS = {S, L, D, J}\n- Unconditionally end a leg and open a stop segment\n- If one appears while building a candidate leg, the candidate is promoted (if valid) or discarded\n\nFRESH_STOP_LABELS = {S, D, J}\n- Stop labels that represent a fresh (non-large) stopping event\n- Used in _handle_fresh() — when no segments exist yet\n\nBASE_LABELS = {C, N, B}\n- Neutral/base candles that form the core of a leg\n\nLeg validity (LegValidator.is_valid_leg):\n```python\ndef is_valid_leg(candles):\n    return (\n        all_same_direction(candles)       # every candle same struct dir\n        and has_valid_base(candles)        # >=1 C/N, or >=2 B candles\n        and no_always_stop(candles)        # no S/D/J/L in the leg\n    )\n```\n\nhas_valid_base requires EITHER:\n- At least 1 C or N candle, OR\n- At least 2 B candles",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_003",
+    "title": "Structure Points - A, B, and Stop Breach",
+    "category": "strategy",
+    "content": "Three key price levels define structure geometry:\n\nPoint A = leg_start (leg origin):\n```python\ndef leg_start(leg, prev_stop=None):\n    if leg.direction == Direction.BULL:\n        base = min(c.low for c in leg.candles)\n        if prev_stop:\n            base = min(base, prev_stop.low)\n        return base\n    base = max(c.high for c in leg.candles)\n    if prev_stop:\n        base = max(base, prev_stop.high)\n    return base\n```\nBULL: lowest low of leg candles (and prev_stop if given)\nBEAR: highest high of leg candles (and prev_stop if given)\n\nPoint B = leg_endpoint (leg extreme):\n```python\ndef leg_endpoint(leg):\n    if leg.direction == Direction.BULL:\n        return max(c.high for c in leg.candles)\n    return min(c.low for c in leg.candles)\n```\nBULL: highest high. BEAR: lowest low. Uses ONLY the leg's own candles.\n\nStop Breach:\n```python\ndef stop_breach(stop):\n    if stop.direction == Direction.BULL:\n        return stop.low   # stops retrace downward\n    return stop.high      # stops retrace upward\n```",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_004",
+    "title": "Leg Counting - Staircase and Nesting",
+    "category": "strategy",
+    "content": "LegCounter.count() confirms legs using two geometric rules:\n\n```python\ndef count(segments):\n    # Leg 1 is always confirmed\n    confirmed = 1\n    for i in range(1, len(legs)):\n        prev_end = leg_endpoint(prev_leg)\n        curr_end = leg_endpoint(curr_leg)\n        prev_start = leg_start(prev_leg, prev_leg_prev_stop)\n\n        if direction == Direction.BULL:\n            staircase = curr_end > prev_end\n            nested = between_stop.low >= prev_start\n        elif direction == Direction.BEAR:\n            staircase = curr_end < prev_end\n            nested = between_stop.high <= prev_start\n\n        if staircase and nested:\n            confirmed += 1\n        else:\n            break\n```\n\nStaircase rule: each new leg endpoint must SURPASS the previous leg's endpoint.\n- BULL: curr_end > prev_end (higher highs)\n- BEAR: curr_end < prev_end (lower lows)\n\nNesting rule: the stop between consecutive legs must stay within bounds.\n- BULL: stop.low >= previous leg start (no deeper pullback)\n- BEAR: stop.high <= previous leg start (no higher pullback)\n\nBoth must be true. First failure stops counting.",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_005",
+    "title": "Structure Building - State Machine Flow",
+    "category": "strategy",
+    "content": "StructureBuilder processes candles through 3 states:\n\n1. _handle_fresh() — No segments yet:\n- FRESH_STOP_LABELS (S,D,J): if candidate is valid leg → promote+stop, else discard\n- ALWAYS_STOP_LABELS (S,L,D,J): same promote-or-discard logic\n- Same-direction candle (not stop label): append to candidate\n- Opposite-direction candle: if candidate valid → promote+stop; else reset candidate to this candle\n\n2. _handle_leg_active() — Last segment is LEG:\n- Same-direction, non-stop label: extend the leg\n- Anything else: start a new STOP segment with this candle\n\n3. _handle_stop_active() — Last segment is STOP:\n- ALWAYS_STOP_LABELS: if candidate valid → promote+stop; else append to stop, clear candidate\n- Same-direction as structure: append to candidate (building next leg)\n- Opposite-direction: if candidate valid → promote+stop; else append to stop, clear candidate\n\n_promote_and_stop() performs a staircase pre-check before promoting:\n```python\nif prev_legs:\n    prev_end = leg_endpoint(prev_leg)\n    curr_end = leg_endpoint(temp_leg_from_candidate)\n    if BULL: passes = curr_end > prev_end\n    if BEAR: passes = curr_end < prev_end\n    if not passes:\n        # fold trigger candle into current stop instead\n        return []\n```",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_006",
+    "title": "Break Detection - Single-Leg Reverse and Geometric Break",
+    "category": "strategy",
+    "content": "Two types of structural breaks:\n\n1. Single-leg reverse (only when confirmed_legs == 1):\n```python\ndef is_single_leg_reverse(leg, stop, prev_stop=None):\n    start = leg_start(leg)\n    if leg.direction == Direction.BULL:\n        ref = min(prev_stop.low, start) if prev_stop else start\n        return stop.low < ref\n    if leg.direction == Direction.BEAR:\n        ref = max(prev_stop.high, start) if prev_stop else start\n        return stop.high > ref\n```\nThe stop fully reverses the leg — price breaches the true origin.\n\nAlternatively, if ShiftScorer score >= 6/9 elements → also triggers single-leg reverse.\n\n2. Geometric break (needs >= 2 stops):\n```python\ndef is_geometric_break(stops):\n    prev_breach = stop_breach(stops[-2])\n    curr_breach = stop_breach(stops[-1])\n    if direction == Direction.BULL:\n        return curr_breach < prev_breach  # deeper low\n    if direction == Direction.BEAR:\n        return curr_breach > prev_breach  # higher high\n```\nCurrent stop breach exceeds previous stop breach.\n\n3. Candidate breach check: if candidate candles breach previous stop, that also triggers STRUCTURE_BROKEN.",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_007",
+    "title": "Legs Shift Scorer - 9 Elements (a through i)",
+    "category": "strategy",
+    "content": "ShiftScorer evaluates whether a breaking stop is a genuine structural shift. Shift confirmed when true_count >= 6.\n\nThe breaking stop moves OPPOSITE to structure direction.\n\na — Outbreak: BO in break direction within the stop.\n  BULL break: curr.high > prev.high. BEAR break: curr.low < prev.low.\n\nb — Double: Double Top/Bottom pattern in the stop's time range.\n  BULL structure break: needs BEAR→BULL→BEAR sequence.\n  BEAR structure break: needs BULL→BEAR→BULL sequence.\n  Skips S/L/D/J labels.\n\nc — Structure Break: stop breaches previous structure.\n  BULL break: stop.high > prev_stop.high. BEAR break: stop.low < prev_stop.low.\n  N/A when only 1 leg exists (c_applicable = False, total is /8 not /9).\n\nd — EMA-60 Cross: candle close crosses the EMA-60 during the stop.\n\ne — Follow-through: after the first BO candle, a same-direction-by-close candle follows within 2 bars.\n\nf — Close Gap: any candle closes beyond previous candle's extreme.\n  BULL: close > prev.high. BEAR: close < prev.low.\n\ng — Size: breaking stop range >= 1.5x average range of previous stops.\n\nh — Gap Fill: a gap from the last leg was filled by the breaking stop.\n  Checks both adjacent-candle gaps and 2-candle-apart gaps.\n\ni — 3C Gap: 3 consecutive non-overlapping candles.\n  BULL: c0.high < c2.low. BEAR: c0.low > c2.high.",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_008",
+    "title": "Leg2Chain Entry Strategy - Mode A and Mode B",
+    "category": "entry",
+    "content": "Leg2Chain activates when confirmed_legs == 1 and event == STOP_STARTED.\n\nState flow: WAIT_CORRECTION → MONITOR → (Mode A entry | Mode B)\n\nWAIT_CORRECTION: waits for a correction BO in Stop 1:\n```python\ndef _has_correction(stop, leg_direction):\n    for i in range(1, len(candles)):\n        if leg_direction == Direction.BULL:\n            if candles[i].close < candles[i-1].low: return True\n        elif leg_direction == Direction.BEAR:\n            if candles[i].close > candles[i-1].high: return True\n    return False\n```\n\nMONITOR: 2-candle window after correction. Each candle checked for:\n- BO: candle.close > prev.high (BULL) or candle.close < prev.low (BEAR)\n- Opposite-by-close: candle.close < candle.open (BULL) or close > open (BEAR)\n\nDecision table:\n- Case A: BO + no bear flag → Mode A entry (immediate, entry_price = candle.close)\n- Case B: BO + bear flag set → arm Mode B, wait for FT\n- Case C: opposite-close, no BO → set bear flag, continue\n- Case D: both on same candle → bear takes priority → arm Mode B\n- Case E: window exhausts (2 candles), no BO → if flag: Mode B; else: DONE\n\nMode B (B_POST_BO): 2-candle FT window after BO.\n- FT = candle closes in leg direction (close > open for BULL, close < open for BEAR)\n- FT hit → entry (entry_price = candle.close)\n- No FT in 2 candles → back to Mode B to wait for next BO (indefinite)",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_009",
+    "title": "Leg3Drive Entry Strategy - D Beyond B Gate",
+    "category": "entry",
+    "content": "Leg3Drive activates when confirmed_legs == 2 and event == STOP_STARTED.\n\nExtra gate before arming: D must be beyond B.\n```python\ndef _d_beyond_b(segments, direction):\n    legs = [s for s in segments if s.kind == SegmentKind.LEG]\n    point_b = StructurePoints.leg_endpoint(legs[0])\n    point_d = StructurePoints.leg_endpoint(legs[1])\n    if direction == Direction.BULL:\n        return point_d > point_b  # leg2 higher high than leg1\n    if direction == Direction.BEAR:\n        return point_d < point_b  # leg2 lower low than leg1\n```\n\nIf D > B passes, strategy arms with WAIT_CORRECTION on Stop 2:\n```python\n# Waits for correction in stops[1] (Stop 2), not stops[0]\nif len(stops) >= 2 and self._has_correction(stops[1], direction):\n    watch.mode = \"MONITOR\"\n```\n\nAfter correction, same Mode A / Mode B logic as Leg2Chain:\n- 2-candle monitor window\n- Same BO / opposite-close / FT rules\n- Signal reason: \"Leg3Drive Mode A\" or \"Leg3Drive Mode B\"\n- leg_number = 3 in the Signal",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  },
+  {
+    "id": "lesson_010",
+    "title": "Position Management - R-Based State Machine",
+    "category": "risk",
+    "content": "TradeStateMachine manages one trade through R-based milestones.\n\nR thresholds:\n```python\n_R_ADD_POS2      =  0.25   # add position 2\n_R_CLOSE_POS2_BE =  0.00   # close pos2 at breakeven\n_R_TP            =  0.50   # take profit\n_R_NEGATIVE      = -0.25   # enter negative watch\n_R_FULL_FAIL     = -0.50   # full fail exit\n_R_SL_POS1_ALONE = -1.00   # stop loss for pos1 alone\n```\n\nR calculation:\n```python\ndef r_value(self, price):\n    if self._direction == Direction.BULL:\n        return (price - self._entry) / self._risk\n    return (self._entry - price) / self._risk\n```\n\nState flow:\n1. INITIAL_MONITORING: adverse checked FIRST (wipeout beats pos2 add)\n   - fav >= +0.25R AND no prior adverse → POS2_ACTIVE (add pos2)\n   - adv <= -0.25R → set adverse flag → NEGATIVE_WATCH\n   - adv <= -0.50R → FULL_FAIL (if direct_fail_exit and never touched positive → FINISHED; else → FAILED_WAIT_REENTRY)\n   - fav >= +0.50R → TP → FINISHED\n\n2. POS2_ACTIVE: favorable checked FIRST (TP beats same-bar BE)\n   - fav >= pos2_tp_r (default 0.50R) → TP → FINISHED\n   - adv <= 0.00R → close pos2 at BE → POS1_ONLY_POST_BE\n\n3. POS1_ONLY_POST_BE: TP at +0.50R, SL extended to -1.00R\n\n4. NEGATIVE_WATCH: adverse first. Same fail/TP logic as INITIAL.\n\n5. FAILED_WAIT_REENTRY: re-enter when price returns to 0R (entry level).\n\n6. REENTRY_ACTIVE: TP at +0.50R, SL at -1.00R.",
+    "created_at": "2026-10-03T00:00:00+00:00"
+  }
+]

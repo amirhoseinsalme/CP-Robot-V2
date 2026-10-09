@@ -45,6 +45,7 @@ class SimTrade:
     sl_price: float
     tp_price: float
     lot: float
+    is_pos2: bool = False
     exit_price: float | None = None
     exit_time: str | None = None
     exit_reason: str | None = None
@@ -90,6 +91,17 @@ class BacktestEngine:
         to_time:   HH:MM — only candles at or before this time are processed
         """
         self._symbol = symbol or self._default_symbol()
+
+        # EMA warm-up: کندل‌های قبل از from_time را فقط به EMA می‌دهیم
+        # (مشابه main.py که 60 دقیقه قبل از session_start فقط EMA warm-up می‌کند)
+        pre_session = [c for c in candles if c["time"][11:16] < from_time]
+        for raw in pre_session:
+            try:
+                close_val = float(raw["close"])
+                self._update_ema(close_val)
+            except (KeyError, ValueError):
+                pass
+
         filtered = [c for c in candles if from_time <= c["time"][11:16] <= to_time]
         for raw in filtered:
             self._process_candle(raw)
@@ -218,10 +230,26 @@ class BacktestEngine:
     # ------------------------------------------------------------------
 
     def _on_structure_update(self, event, candle: Candle) -> None:
-        if self.active_watch is not None:
+        # اگر trade باز داریم، watch arm نمی‌شود
+        if self._open_trade is not None:
             return
 
         builder = self.builder
+
+        # وقتی لگ ۲ confirm می‌شود و Leg2Chain watch داریم، آن را حذف کن
+        # تا Leg3Drive بتواند جایش را بگیرد (mirrors main.py logic)
+        if (
+            event.kind == EventKind.LEG_CONFIRMED
+            and builder.confirmed_legs >= 2
+            and self.active_watch is not None
+            and self.active_watch[1].name == "Leg2Chain"
+        ):
+            log.debug("[BT] Replacing stale Leg2Chain watch with Leg3Drive")
+            self.active_watch = None
+
+        if self.active_watch is not None:
+            return
+
         for strategy in self.strategies:
             watch = strategy.on_structure_event(
                 event, builder.segments, builder.confirmed_legs, candle,
@@ -321,6 +349,7 @@ class BacktestEngine:
             main_sl_price=sl,
             direction=signal.direction,
             enable_pos2_loss_floor=self.config.position.enable_pos2_loss_floor,
+            direct_fail_exit=self.config.position.direct_fail_exit,
         )
 
         self._open_trade = {
@@ -365,10 +394,16 @@ class BacktestEngine:
                 log.info("[BT] Pos2 added at +0.25R, lot=%.2f", t["pos2_lot"])
 
             elif event == TradeEvent.POSITION2_CLOSE_BE:
+                if t["pos2_opened"]:
+                    self._record_close(t["entry"], candle.time, "pos2_be",
+                                       lot=t["pos2_lot"], is_pos2=True)
                 log.info("[BT] Pos2 closed at BE (0R)")
 
             elif event == TradeEvent.POSITION1_CLOSE_TP:
                 exit_price = self._r_to_price(0.5)
+                if prev_state == TradeState.POS2_ACTIVE and t["pos2_opened"]:
+                    self._record_close(exit_price, candle.time, "tp",
+                                       lot=t["pos2_lot"], is_pos2=True)
                 self._record_close(exit_price, candle.time, "tp")
                 self._open_trade = None
                 return
@@ -379,6 +414,9 @@ class BacktestEngine:
                 else:
                     exit_r = -0.5
                 exit_price = self._r_to_price(exit_r)
+                if prev_state == TradeState.POS2_ACTIVE and t["pos2_opened"]:
+                    self._record_close(exit_price, candle.time, "sl",
+                                       lot=t["pos2_lot"], is_pos2=True)
                 self._record_close(exit_price, candle.time, "sl")
                 t["pos1_closed"] = True
 
@@ -423,7 +461,8 @@ class BacktestEngine:
         return t["entry"] - r_mult * t["risk"]
 
     def _record_close(self, exit_price: float, exit_time: str,
-                      reason: str, lot: float | None = None) -> None:
+                      reason: str, lot: float | None = None,
+                      is_pos2: bool = False) -> None:
         t = self._open_trade
         sc = self._symbol_config()
         use_lot = lot if lot is not None else t["lot"]
@@ -445,6 +484,7 @@ class BacktestEngine:
             sl_price=t["sl"],
             tp_price=t["tp"],
             lot=use_lot,
+            is_pos2=is_pos2,
             exit_price=exit_price,
             exit_time=exit_time,
             exit_reason=reason,
@@ -549,6 +589,36 @@ class BacktestResult:
         if gross_loss == 0:
             return float("inf") if gross_profit > 0 else 0.0
         return gross_profit / gross_loss
+
+    @property
+    def by_strategy(self) -> dict:
+        from collections import defaultdict
+        groups: dict[str, list[SimTrade]] = defaultdict(list)
+        for t in self.trades:
+            groups[t.strategy or "Unknown"].append(t)
+
+        def stats(tlist: list[SimTrade]) -> dict | None:
+            if not tlist:
+                return None
+            wins = sum(1 for t in tlist if t.pnl > 0)
+            total_pnl = sum(t.pnl for t in tlist)
+            return {
+                "count": len(tlist),
+                "wins": wins,
+                "win_rate": round(wins / len(tlist) * 100, 1),
+                "total_pnl": round(total_pnl, 2),
+            }
+
+        result = {}
+        for strat, trades in groups.items():
+            pos1_trades = [t for t in trades if not t.is_pos2]
+            pos2_trades = [t for t in trades if t.is_pos2]
+            result[strat] = {
+                "position1": stats(pos1_trades),
+                "position2": stats(pos2_trades),
+                "all": stats(trades),
+            }
+        return result
 
     def summary(self) -> str:
         return (

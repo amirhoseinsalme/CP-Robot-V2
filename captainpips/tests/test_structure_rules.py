@@ -40,6 +40,7 @@ def make_candle(
     return Candle(
         index=index,
         time=time,
+        raw_time=0,
         label=label,
         direction=direction,
         open=open_,
@@ -259,18 +260,17 @@ def test_structure_points_leg_start_bear():
     assert StructurePoints.leg_start(seg) == L1_C1.high
 
 
-def test_structure_points_leg_endpoint_bear_with_stop():
-    """For a BEAR leg+stop, endpoint = min(leg.low, stop.first_candle.low)."""
+def test_structure_points_leg_endpoint_bear():
+    """For a BEAR leg, endpoint = min of leg candle lows."""
     leg = Segment(kind=SegmentKind.LEG, direction=Direction.BEAR, candles=[L1_C1, L1_C2])
-    stop = Segment(kind=SegmentKind.STOP, direction=Direction.BEAR, candles=[S1_P_SYNTHETIC])
-    expected = min(L1_C2.low, S1_P_SYNTHETIC.low)  # min(4440.03, 4440.00) = 4440.00
-    assert StructurePoints.leg_endpoint(leg, stop) == expected
+    expected = min(c.low for c in [L1_C1, L1_C2])
+    assert StructurePoints.leg_endpoint(leg) == expected
 
 
 def test_structure_points_stop_breach_bear():
-    """For a BEAR stop, breach = first candle's low."""
+    """For a BEAR stop, breach = stop.high (upward retracement extreme)."""
     stop = Segment(kind=SegmentKind.STOP, direction=Direction.BEAR, candles=[S3_L, S3_B2])
-    assert StructurePoints.stop_breach(stop) == S3_L.low
+    assert StructurePoints.stop_breach(stop) == stop.high
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +292,7 @@ if __name__ == "__main__":
         test_structure_builder_integration_leg_count_monotonic,
         test_structure_builder_integration_direction_preserved,
         test_structure_points_leg_start_bear,
-        test_structure_points_leg_endpoint_bear_with_stop,
+        test_structure_points_leg_endpoint_bear,
         test_structure_points_stop_breach_bear,
     ]
 

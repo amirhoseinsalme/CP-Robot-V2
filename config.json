@@ -9,9 +9,9 @@
   },
   "symbols": [
     {
-      "symbol": "US30.U26",
+      "symbol": "xauusd@",
       "enabled": true,
-      "session_start": "16:30",
+      "session_start": "10:51",
       "session_end": "23:00",
       "sl_pips": 60.0,
       "tp_pips": 30.0,
@@ -44,7 +44,8 @@
     "position2": {
       "enabled": true,
       "risk_pct": 1.0,
-      "sl_pips": 60.0,
+      "sl_pips": 0.0,
+      "tp_r": 0.5,
       "entry_r": 0.25
     }
   },
@@ -52,7 +53,8 @@
     "position1_multiplier": 0.5,
     "position2_multiplier": 3.0,
     "reentry_multiplier": 0.5,
-    "enable_pos2_loss_floor": false
+    "enable_pos2_loss_floor": false,
+    "direct_fail_exit": true
   },
   "app": {
     "api_port": 8000,

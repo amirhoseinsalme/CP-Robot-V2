@@ -87,31 +87,46 @@ class ZmqConnector:
         """
         Send a request to the EA via PUSH and wait for the reply on PULL.
 
-        Returns the reply dict, or None on timeout or send error.
+        For OPEN actions: uses a longer timeout and retries up to 2 times,
+        because a missed OPEN due to transient EA latency is a real trade loss.
+        Returns the reply dict, or None if all attempts fail.
         """
-        req_id = str(uuid.uuid4())
-        payload = {"action": action, "req_id": req_id, **kwargs}
+        import time as _time
 
-        with self._reply_lock:
-            q: Queue = self._reply_queues[req_id]
+        is_open = (action == "OPEN")
+        timeout_sec = (self._cfg.recv_timeout_ms * 2.5) / 1000.0 if is_open else self._cfg.recv_timeout_ms / 1000.0
+        max_attempts = 3 if is_open else 1
 
-        with self._push_lock:
+        for attempt in range(1, max_attempts + 1):
+            req_id = str(uuid.uuid4())
+            payload = {"action": action, "req_id": req_id, **kwargs}
+
+            with self._reply_lock:
+                q: Queue = self._reply_queues[req_id]
+
+            with self._push_lock:
+                try:
+                    self._push.send_string(json.dumps(payload))
+                except zmq.error.Again:
+                    log.warning("PUSH send timeout for action=%s attempt=%d", action, attempt)
+                    self._remove_queue(req_id)
+                    if attempt < max_attempts:
+                        _time.sleep(0.2)
+                    continue
+
             try:
-                self._push.send_string(json.dumps(payload))
-            except zmq.error.Again:
-                log.warning("PUSH send timeout for action=%s", action)
+                reply = q.get(timeout=timeout_sec)
+                return reply
+            except Empty:
+                log.warning(
+                    "Reply timeout for action=%s req_id=%s attempt=%d/%d",
+                    action, req_id, attempt, max_attempts,
+                )
                 self._remove_queue(req_id)
-                return None
+                if attempt < max_attempts:
+                    _time.sleep(0.3)
 
-        try:
-            reply = q.get(timeout=self._cfg.recv_timeout_ms / 1000.0)
-        except Empty:
-            log.warning("Reply timeout for action=%s req_id=%s", action, req_id)
-            reply = None
-        finally:
-            self._remove_queue(req_id)
-
-        return reply
+        return None
 
     def request_historical(
         self,
