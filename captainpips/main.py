@@ -84,6 +84,11 @@ class CaptainPipsBot:
         self._backfill_end_time: dict[str, int] = {}
         self._is_backfilling: dict[str, bool] = {}
         self._broker_names: dict[str, str] = {}   # key = symbol.strip().upper() → exact EA name
+        self._armed: bool = False          # set True on first Save; gates candle processing
+        self._armed_logged: bool = False   # suppress repeat "waiting for Save" log lines
+        self._backfill_locks: dict[str, threading.Lock] = {}
+        self._backfill_locks_mutex = threading.Lock()
+        self._live_queue: dict[str, list[tuple[dict, str]]] = {}
 
         # --- shared modules ---
         self.strategies: list[BaseStrategy] = [Leg2Chain(), Leg3Drive()]
@@ -192,19 +197,6 @@ class CaptainPipsBot:
             target=self._start_stream, daemon=True, name="zmq-stream"
         )
         self._stream_thread.start()
-        time.sleep(0.5)  # let the SUB socket connect before backfill sends REQ messages
-
-        self._backfill()
-
-        # Replay post-backfill structure to the ChartDrawer so objects appear on connect
-        for symbol, builder in self.builders.items():
-            for i, seg in enumerate(builder.segments):
-                if seg.kind == SegmentKind.LEG:
-                    leg_num = sum(1 for s in builder.segments[:i + 1] if s.kind == SegmentKind.LEG)
-                    self._drawer.on_leg_confirmed(seg, leg_num, symbol)
-                elif seg.kind == SegmentKind.STOP:
-                    stop_num = sum(1 for s in builder.segments[:i + 1] if s.kind == SegmentKind.STOP)
-                    self._drawer.on_stop_started(seg, stop_num, symbol)
 
         try:
             while True:
@@ -234,35 +226,6 @@ class CaptainPipsBot:
         self._api_thread.start()
         log.info("API server starting on %s:%d", cfg.api_host, cfg.api_port)
         time.sleep(1)  # wait for uvicorn to start and self._loop to be assigned
-
-    def _backfill(self) -> None:
-        """Request historical candles from session_start to now for each symbol."""
-        broker_ts = self._wait_for_broker_time(timeout=15.0)
-        if broker_ts is None:
-            log.warning("Broker time not available — skipping backfill")
-            return
-
-        symbols = self.config.enabled_symbols()
-        if not symbols:
-            log.info("No symbols configured — backfill skipped")
-            return
-
-        for sc in symbols:
-            self._backfill_symbol(sc, broker_ts)
-
-        # Broadcast current structure state so panel gets it immediately on connect
-        for sym, builder in self.builders.items():
-            self._broadcast({
-                "type": "structure",
-                "symbol": sym,
-                "confirmed_legs": builder.confirmed_legs,
-                "direction": builder.direction.value if builder.direction else None,
-                "segments": len(builder.segments),
-                "candles_processed": self._candle_index.get(sym, 0),
-                "active_targets": self._compute_active_targets(sym),
-                "paradox_active": self.paradox.get(sym) is not None and self.paradox[sym].is_active(),
-            })
-        log.info("Post-backfill structure snapshot broadcast for %d symbols", len(self.builders))
 
     def _get_structure_state(self) -> dict:
         """Return current structure state for all tracked symbols."""
@@ -349,118 +312,162 @@ class CaptainPipsBot:
         session_clock = broker_clock.replace(hour=h, minute=m, second=0, microsecond=0)
         return int(calendar.timegm(session_clock.timetuple()))
 
-    def _backfill_symbol(self, sc: SymbolConfig, broker_ts: int) -> None:
-        """Backfill one symbol from its session_start to broker_ts.
+    def _backfill_symbol(self, sc: SymbolConfig, _broker_ts: int = 0) -> None:
+        """Backfill one symbol.
 
-        Requests 60 extra minutes before session_start for EMA warm-up.
-        Pre-session candles only feed the EMA — structure building starts
-        at session_start.
+        Waits up to 90 s for broker time and broker name if they are not yet
+        known.  Serialised per symbol via a lock so a second Save waits, then
+        runs cleanly with a fresh state.  Live candles that arrive during the
+        backfill are queued and processed afterwards.
         """
-        if sc.symbol.strip().upper() not in self._broker_names:
-            log.info("Backfill for %s deferred until first live candle", sc.symbol)
-            return
+        # Wait for broker time (up to 90 s)
+        if self._broker_now_ts is None:
+            log.info("Waiting for broker time before backfill of %s", sc.symbol)
+            broker_now = self._wait_for_broker_time(timeout=90.0)
+            if broker_now is None:
+                log.warning("Broker time never arrived — skipping backfill for %s", sc.symbol)
+                return
+
+        # Wait for broker name (up to 90 s, polling every 0.5 s)
+        deadline = time.monotonic() + 90.0
+        while sc.symbol.strip().upper() not in self._broker_names:
+            if time.monotonic() > deadline:
+                log.warning(
+                    "Broker name for %s never received — skipping backfill", sc.symbol
+                )
+                return
+            time.sleep(0.5)
+
         sym = self._canon(sc.symbol)
-        self._ensure_symbol(sym)
 
-        # Clear any leftover chart objects from a previous run before drawing fresh
-        self._drawer.on_structure_reset(sym)
+        # Get or create per-symbol lock (thread-safe creation)
+        with self._backfill_locks_mutex:
+            if sym not in self._backfill_locks:
+                self._backfill_locks[sym] = threading.Lock()
+            lock = self._backfill_locks[sym]
 
-        to_ts = int(time.time()) + self._broker_offset
-        from_ts = self._session_ts_from_broker(to_ts, sc.session_start)
-        log.info(
-            "Backfill range: from_ts=%s session_start=%s to_ts=%s broker_now=%s",
-            from_ts,
-            sc.session_start,
-            datetime.utcfromtimestamp(to_ts).strftime("%H:%M"),
-            datetime.utcfromtimestamp(broker_ts).strftime("%H:%M"),
-        )
-        if from_ts is None:
-            log.warning("Cannot compute backfill range for %s — skipping", sym)
-            return
+        with lock:
+            self._is_backfilling[sym] = True
+            self._init_symbol_state(sym)
+            self._live_queue[sym] = []
 
-        if from_ts >= to_ts:
-            log.info("%s: session %s has not started yet — no backfill needed", sym, sc.session_start)
-            return
+            try:
+                # Clear any leftover chart objects from a previous run
+                self._drawer.on_structure_reset(sym)
 
-        # Request 60 extra minutes before session_start for EMA warm-up
-        ema_from_ts = from_ts - (60 * 60)
+                # Use current offset so a delayed backfill covers up to "now"
+                to_ts = int(time.time()) + self._broker_offset
+                from_ts = self._session_ts_from_broker(to_ts, sc.session_start)
+                log.info(
+                    "Backfill range: session_start=%s to_ts=%s",
+                    sc.session_start,
+                    datetime.utcfromtimestamp(to_ts).strftime("%H:%M"),
+                )
+                if from_ts is None:
+                    log.warning("Cannot compute backfill range for %s — skipping", sym)
+                    return
 
-        log.info(
-            "Backfilling %s: EMA warm-up from %s, structure from %s to %s",
-            sym,
-            datetime.utcfromtimestamp(ema_from_ts).strftime("%H:%M"),
-            datetime.utcfromtimestamp(from_ts).strftime("%H:%M"),
-            datetime.utcfromtimestamp(to_ts).strftime("%H:%M"),
-        )
+                if from_ts >= to_ts:
+                    log.info(
+                        "%s: session %s has not started yet — no backfill needed",
+                        sym, sc.session_start,
+                    )
+                    return
 
-        bars = self.zmq.request_historical(sym, from_ts=ema_from_ts, to_ts=to_ts, timeframe=1)
-        log.info("Got %d bars for %s", len(bars) if bars else 0, sym)
+                # Request 60 extra minutes before session_start for EMA warm-up
+                ema_from_ts = from_ts - (60 * 60)
 
-        if not bars:
-            log.warning("No historical bars returned for %s", sym)
-            return
+                log.info(
+                    "Backfilling %s: EMA warm-up from %s, structure from %s to %s",
+                    sym,
+                    datetime.utcfromtimestamp(ema_from_ts).strftime("%H:%M"),
+                    datetime.utcfromtimestamp(from_ts).strftime("%H:%M"),
+                    datetime.utcfromtimestamp(to_ts).strftime("%H:%M"),
+                )
 
-        log.info("Backfill %s: received %d bars", sym, len(bars))
-        builder = self.builders.get(sym)
-        if builder:
-            log.info("Builder reset for %s (was %d segments)", sym, len(builder.segments))
-            builder.reset(from_candle_index=0)
+                bars = self.zmq.request_historical(sym, from_ts=ema_from_ts, to_ts=to_ts, timeframe=1)
+                log.info("Got %d bars for %s", len(bars) if bars else 0, sym)
 
-        self._is_backfilling[sym] = True
-        for raw in bars:
-            raw_time = int(raw.get("time", 0))
-            if raw_time < from_ts:
-                # Pre-session candle: EMA warm-up only, no structure building
-                self._update_ema(sym, float(raw["close"]))
-            else:
-                self._process_candle(sym, raw, broadcast=False)
-        self._is_backfilling[sym] = False
+                if not bars:
+                    log.warning("No historical bars returned for %s", sym)
+                    return
 
-        # Draw all current segments after backfill
-        builder = self.builders[sym]
-        leg_num = 0
-        stop_num = 0
-        for i, seg in enumerate(builder.segments):
-            if seg.kind == SegmentKind.LEG:
-                leg_num += 1
-                self._drawer.on_leg_confirmed(seg, leg_num, sym)
-            elif seg.kind == SegmentKind.STOP:
-                stop_num += 1
-                self._drawer.on_stop_started(seg, stop_num, sym)
-        if bars:
-            last_raw_time = int(bars[-1].get("time", 0))
-            self._backfill_end_time[sym] = last_raw_time
-            log.info("Backfill end time for %s: %d", sym, last_raw_time)
-        log.info("Backfill complete for %s: drew %d legs, %d stops", sym, leg_num, stop_num)
+                log.info("Backfill %s: received %d bars", sym, len(bars))
+                last_raw_time = int(bars[-1].get("time", 0))
+                self._backfill_end_time[sym] = last_raw_time
+                log.info("Backfill end time for %s: %d", sym, last_raw_time)
 
-        # Draw paradox zone if active after backfill
-        pstate = self.paradox.get(sym)
-        if pstate and pstate.is_active():
-            self._drawer.on_paradox_zone(pstate.upper, pstate.lower, sym)
-            log.info("Backfill: paradox zone active for %s upper=%s lower=%s",
-                     sym, pstate.upper, pstate.lower)
+                for raw in bars:
+                    raw_time = int(raw.get("time", 0))
+                    if raw_time < from_ts:
+                        self._update_ema(sym, float(raw["close"]))
+                    else:
+                        self._process_candle(sym, raw, broadcast=False)
 
-        # Replay candle history to all connected WebSocket monitors so the
-        # panel is populated immediately — without this, the monitor stays
-        # blank until the next live candle arrives.
-        recent = list(self._recent_candles.get(sym, []))
-        if recent:
-            log.info(
-                "Replaying %d cached candles for %s to WebSocket monitors", len(recent), sym
-            )
-            for rec in recent:
+                # Draw all current legs/stops after backfill (shared-point boxes)
+                builder = self.builders[sym]
+                self._drawer.draw_structure(builder, sym)
+                leg_num = sum(1 for s in builder.segments if s.kind == SegmentKind.LEG)
+                stop_num = sum(1 for s in builder.segments if s.kind == SegmentKind.STOP)
+                log.info("Backfill complete for %s: drew %d legs, %d stops", sym, leg_num, stop_num)
+
+                # Draw paradox zone if active after backfill
+                pstate = self.paradox.get(sym)
+                if pstate and pstate.is_active():
+                    self._drawer.on_paradox_zone(pstate.upper, pstate.lower, sym)
+                    log.info("Backfill: paradox zone active for %s upper=%s lower=%s",
+                             sym, pstate.upper, pstate.lower)
+
+                # Replay candle history to all connected WebSocket monitors
+                recent = list(self._recent_candles.get(sym, []))
+                if recent:
+                    log.info(
+                        "Replaying %d cached candles for %s to WebSocket monitors", len(recent), sym
+                    )
+                    for rec in recent:
+                        self._broadcast({
+                            "type": "candle",
+                            "symbol": sym,
+                            "index": rec["index"],
+                            "time": rec["time"],
+                            "label": rec["label"],
+                            "direction": rec["direction"],
+                            "open": rec["open"],
+                            "high": rec["high"],
+                            "low": rec["low"],
+                            "close": rec["close"],
+                        })
+
+                # Process live candles that arrived during backfill
+                queued = self._live_queue.get(sym, [])
+                log.info("Processing %d queued live candles for %s", len(queued), sym)
+                backfill_end = self._backfill_end_time.get(sym, 0)
+                sc_cfg = self._symbol_config(sym)
+                for q_data, q_time_str in queued:
+                    if int(q_data.get("time", 0)) <= backfill_end:
+                        continue
+                    if sc_cfg and not self._in_session(q_time_str, sc_cfg):
+                        continue
+                    self._process_candle(sym, q_data, time_str=q_time_str, broadcast=True)
+                self._live_queue[sym] = []
+
+                # Broadcast structure snapshot for the panel
+                builder = self.builders[sym]
                 self._broadcast({
-                    "type": "candle",
+                    "type": "structure",
                     "symbol": sym,
-                    "index": rec["index"],
-                    "time": rec["time"],
-                    "label": rec["label"],
-                    "direction": rec["direction"],
-                    "open": rec["open"],
-                    "high": rec["high"],
-                    "low": rec["low"],
-                    "close": rec["close"],
+                    "confirmed_legs": builder.confirmed_legs,
+                    "direction": builder.direction.value if builder.direction else None,
+                    "segments": len(builder.segments),
+                    "candles_processed": self._candle_index.get(sym, 0),
+                    "active_targets": self._compute_active_targets(sym),
+                    "paradox_active": (
+                        self.paradox.get(sym) is not None and self.paradox[sym].is_active()
+                    ),
                 })
+
+            finally:
+                self._is_backfilling[sym] = False
 
     def _start_stream(self) -> None:
         """Blocking ZMQ stream listener — runs on the zmq-stream daemon thread.
@@ -522,24 +529,13 @@ class CaptainPipsBot:
             return
         self._broker_names[symbol.strip().upper()] = symbol
 
-        self._ensure_symbol(symbol)
+        if not self._armed:
+            if not self._armed_logged:
+                log.info("Waiting for Save in panel before starting")
+                self._armed_logged = True
+            return
 
-        # Trigger backfill on first candle if not yet backfilled.
-        # Run on a background thread so the ZMQ stream thread is never blocked.
-        if self._candle_index.get(symbol, 0) == 0:
-            if self._broker_now_ts is not None and not self._is_backfilling.get(symbol, False):
-                sc = self._symbol_config(symbol)
-                if sc:
-                    log.info(
-                        "First candle for %s — scheduling backfill on background thread", symbol
-                    )
-                    t = threading.Thread(
-                        target=self._backfill_symbol,
-                        args=(sc, self._broker_now_ts),
-                        daemon=True,
-                        name=f"backfill-{symbol}",
-                    )
-                    t.start()
+        self._ensure_symbol(symbol)
 
         # EA sends "time" as a Unix timestamp (int); convert to HH:MM for
         # session filtering and Candle storage.
@@ -550,18 +546,30 @@ class CaptainPipsBot:
             log.debug("CANDLE skipped (outside session): symbol=%s time=%s", symbol, time_str)
             return
 
+        # Queue candle if a backfill is running for this symbol
+        if self._is_backfilling.get(symbol):
+            self._live_queue.setdefault(symbol, []).append((data, time_str))
+            return
+
         self._process_candle(symbol, data, time_str=time_str, broadcast=True)
 
     def _on_account_message(self, data: dict) -> None:
         """Update cached account state from EA broadcast.
 
-        Also captures an approximate broker time from local clock when the first
-        ACCOUNT message arrives.  This allows _backfill() to run immediately on
-        startup without waiting 15 s for the first bar close (CANDLE messages
-        only arrive when a 1-minute bar closes, so the wait would time out).
-        The offset is set to 0 (local ≈ broker clock), which is accurate enough
-        for session-start calculations.
+        Also captures broker time from the "time" field when present, so backfill
+        does not have to wait for a bar close (CANDLE messages arrive only once
+        per closed M1 bar, up to 60 s after startup).
         """
+        acct_time = data.get("time", 0)
+        if acct_time and self._broker_now_ts is None:
+            self._broker_now_ts = int(acct_time)
+            self._broker_offset = int(acct_time) - int(time.time())
+            self._broker_time_event.set()
+            log.info(
+                "Broker time established from ACCOUNT: %s",
+                datetime.utcfromtimestamp(self._broker_now_ts).strftime("%Y-%m-%d %H:%M:%S"),
+            )
+
         balance = data.get("balance", self.account_balance)
         if self._session_start_balance is None and balance > 0:
             self._session_start_balance = balance
@@ -705,6 +713,7 @@ class CaptainPipsBot:
         stop_num = 0
         segments_data = []
         all_segs = builder.segments
+        leg_pts = {p["n"]: p for p in builder.points() if p["kind"] == "LEG"}
         for i, seg in enumerate(all_segs):
             endpoint = None
             leg_start = None
@@ -712,11 +721,10 @@ class CaptainPipsBot:
                 leg_num += 1
                 num = leg_num
                 confirmed = leg_num <= confirmed_legs
-                prev_stop = None
-                if i - 1 >= 0 and all_segs[i - 1].kind == SegmentKind.STOP:
-                    prev_stop = all_segs[i - 1]
-                endpoint = StructurePoints.leg_endpoint(seg)
-                leg_start = StructurePoints.leg_start(seg, prev_stop)
+                lp = leg_pts.get(leg_num)
+                if lp:
+                    endpoint = lp["end"]
+                    leg_start = lp["start"]
             else:
                 stop_num += 1
                 num = stop_num
@@ -809,8 +817,6 @@ class CaptainPipsBot:
                         symbol,
                     )
                 else:
-                    leg = builder.segments[-2]  # stop was appended after leg in _promote_and_stop
-                    self._drawer.on_leg_confirmed(leg, builder.confirmed_legs, symbol)
                     self._on_structure_update(symbol, event, candle)
             elif event.kind == EventKind.STOP_STARTED:
                 if not builder.segments:
@@ -820,22 +826,13 @@ class CaptainPipsBot:
                     )
                 else:
                     stop = builder.segments[-1]
-                    stop_num = sum(1 for s in builder.segments if s.kind == SegmentKind.STOP)
-                    self._drawer.on_stop_started(stop, stop_num, symbol)
                     self._stop_candle_count[symbol] = stop.n_candles  # track initial stop size
                     self._on_structure_update(symbol, event, candle)
 
-        # 3b. Update stop rectangle if the active stop grew (only when no break)
-        if not broke:
-            if builder.segments and builder.segments[-1].kind == SegmentKind.STOP:
-                last_stop = builder.segments[-1]
-                stop_num = sum(1 for s in builder.segments if s.kind == SegmentKind.STOP)
-                prev_count = self._stop_candle_count.get(symbol, 0)
-                if last_stop.n_candles > prev_count:
-                    self._drawer.on_stop_candle(last_stop, stop_num, symbol)
-                    self._stop_candle_count[symbol] = last_stop.n_candles
-            else:
-                self._stop_candle_count[symbol] = 0
+        # 3b. Redraw leg/stop boxes from the structure points (only changed
+        #     boxes are sent). Skipped during backfill: drawn once at the end.
+        if not broke and not self._is_backfilling.get(symbol, False):
+            self._drawer.draw_structure(builder, symbol)
 
         # M2BO check — runs independently of active_watch
         if not broke and symbol in self.m2bo:
@@ -1103,6 +1100,14 @@ class CaptainPipsBot:
     # ------------------------------------------------------------------
 
     def _execute(self, signal: Signal, symbol: str, candle: Candle) -> None:
+        if candle.raw_time <= self._backfill_end_time.get(symbol, 0):
+            log.info(
+                "[SIGNAL SKIPPED] %s %s on backfill candle %d (backfill_end=%d)",
+                symbol, signal.strategy, candle.raw_time,
+                self._backfill_end_time.get(symbol, 0),
+            )
+            return
+
         log.info(
             "[%s] Signal: %s %s @ %.5f [%s]",
             symbol,
@@ -1257,16 +1262,15 @@ class CaptainPipsBot:
                 self._stop_candle_count.pop(sym, None)
                 self._active_targets.pop(sym, None)
 
-        # Full reset for symbols whose session_start changed
+        # Log session-start changes (state reset happens inside _backfill_symbol)
         session_changed = False
         for sc in new_config.enabled_symbols():
             sym = self._canon(sc.symbol)
             if old_sessions.get(sym) != sc.session_start:
                 log.info(
-                    "Session start changed for %s (%s → %s) — full state reset",
+                    "Session start changed for %s (%s → %s) — backfill will reset state",
                     sym, old_sessions.get(sym, "?"), sc.session_start,
                 )
-                self._init_symbol_state(sym)
                 session_changed = True
 
         # Create new session log if session_start changed
@@ -1277,12 +1281,20 @@ class CaptainPipsBot:
         self._recent_candles = {}
         log.info("Candle cache cleared on config reload")
 
-        # Re-backfill with updated session times if broker time is known
-        if self._broker_now_ts is not None:
-            time.sleep(0.5)  # wait for config to propagate
-            log.info("Starting backfill after config reload")
-            for sc in new_config.enabled_symbols():
-                self._backfill_symbol(sc, self._broker_now_ts)
+        # Arm candle processing (first Save activates the bot)
+        self._armed = True
+
+        # Start backfill for all enabled symbols on a background thread.
+        # Runs even if broker time is not yet known — _backfill_symbol will wait.
+        symbols_to_backfill = list(new_config.enabled_symbols())
+
+        def _run_backfills() -> None:
+            for sc in symbols_to_backfill:
+                self._backfill_symbol(sc)
+
+        t = threading.Thread(target=_run_backfills, daemon=True, name="backfill-reload")
+        t.start()
+        log.info("Backfill thread started for %d symbols", len(symbols_to_backfill))
 
     def _compute_active_targets(self, symbol: str) -> list[str]:
         """Compute which condition chips should be lit for a symbol."""

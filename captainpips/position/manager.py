@@ -117,13 +117,25 @@ class PositionManager:
             return False
 
         ticket = reply.get("ticket")
+        fill = reply.get("fill_price")
+        entry = float(fill) if fill and float(fill) > 0 else signal.entry_price
+        log.info("[FILL] %s signal_price=%.5f fill=%.5f slippage=%.5f",
+                 sym, signal.entry_price, entry, entry - signal.entry_price)
+
+        beyond_sl = entry <= sl_price if signal.direction == Direction.BULL else entry >= sl_price
+        if beyond_sl:
+            log.error("open_trade: fill %.5f is beyond SL %.5f for %s — closing ticket %s",
+                      entry, sl_price, sym, ticket)
+            self._close_ticket(sym, ticket, "fill beyond SL")
+            return False
+
         log.info(f"[POS1 OPENED] {sym} ticket={ticket} "
                  f"direction={signal.direction.value} "
-                 f"entry={signal.entry_price} sl={sl_price} tp={tp_price} "
+                 f"entry={entry} sl={sl_price} tp={tp_price} "
                  f"lot={lot}")
 
         sm = TradeStateMachine(
-            entry_price=signal.entry_price,
+            entry_price=entry,
             main_sl_price=sl_price,
             direction=signal.direction,
             enable_pos2_loss_floor=self._cfg.position.enable_pos2_loss_floor,
@@ -133,7 +145,7 @@ class PositionManager:
         self._trades[sym] = ActiveTrade(
             symbol=sym,
             direction=signal.direction,
-            entry_price=signal.entry_price,
+            entry_price=entry,
             main_sl_price=sl_price,
             pos1_ticket=ticket,
             pos2_ticket=None,
@@ -314,7 +326,7 @@ class PositionManager:
             symbol=symbol,
             ticket=ticket,
         )
-        if reply and reply.get("status") == "OK":
+        if reply and str(reply.get("status", "")).lower() in ("success", "ok"):
             log.info("%s: closed ticket=%s", label, ticket)
         else:
             log.error("%s: EA close failed ticket=%s reply=%s", label, ticket, reply)

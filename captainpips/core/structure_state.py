@@ -65,6 +65,8 @@ class StructureBuilder:
         self.confirmed_legs: int = 0
         self.start_index: int = 0
         self._scorer = ShiftScorer()
+        self.pre_leg: list[Candle] = []      # candles before leg 1 (since start)
+        self.pending: bool = False           # candidate passed D>B but no valid base yet
 
     # ---- public API -------------------------------------------------------
 
@@ -108,6 +110,71 @@ class StructureBuilder:
         self.direction = None
         self.confirmed_legs = 0
         self.start_index = from_candle_index
+        self.pre_leg = []
+        self.pending = False
+
+    def points(self) -> list[dict]:
+        """Structure points with the owner's shared-point rule.
+
+        BULL (mirror for BEAR):
+          Leg 1 start  = lowest low of leg 1 (includes candles from session start)
+          Leg k end  B = highest high of leg k + stop k
+          Stop k end C = lowest low of stop k + leg-k candles after B + first
+                         candle of the next leg (confirmed, pending or candidate)
+          Leg k+1 start = C of stop k
+        Each point also carries the raw_time of the candle that holds it
+        (start_time / end_time) so the chart can draw leg and stop boxes that
+        share their edge candle. An open stop (no next leg yet) has end=None and
+        reports its current extreme as end_now / end_time.
+        A forming (unconfirmed) leg is reported with confirmed=False.
+        """
+        if not self.segments or self.direction is None:
+            return []
+        bull = self.direction == Direction.BULL
+        hi = (lambda c: c.high) if bull else (lambda c: c.low)
+        lo = (lambda c: c.low) if bull else (lambda c: c.high)
+
+        def ext(cs):   # extreme in leg direction -> (price, candle)
+            c = (max if bull else min)(cs, key=hi)
+            return hi(c), c
+
+        def opp(cs):   # extreme against leg direction -> (price, candle)
+            c = (min if bull else max)(cs, key=lo)
+            return lo(c), c
+
+        segs = self.segments
+        legs = [i for i, s in enumerate(segs) if s.kind == SegmentKind.LEG]
+        out: list[dict] = []
+        start, start_c = opp(segs[legs[0]].candles)
+        for n, i in enumerate(legs, 1):
+            leg = segs[i].candles
+            stop = segs[i + 1].candles if i + 1 < len(segs) else []
+            b, b_c = ext(leg + stop)
+            out.append({"kind": "LEG", "n": n, "start": start, "end": b,
+                        "start_time": start_c.raw_time, "end_time": b_c.raw_time,
+                        "confirmed": True})
+            if not stop:
+                break
+            after_b = [c for c in leg if c.index > b_c.index]
+            nxt = segs[i + 2].candles[:1] if i + 2 < len(segs) else self.candidate[:1]
+            if not nxt:
+                now, now_c = opp(stop + after_b)
+                out.append({"kind": "STOP", "n": n, "start": b, "end": None,
+                            "end_now": now, "start_time": b_c.raw_time,
+                            "end_time": now_c.raw_time,
+                            "last_time": stop[-1].raw_time, "confirmed": True})
+                break
+            c_pt, c_c = opp(stop + after_b + nxt)
+            out.append({"kind": "STOP", "n": n, "start": b, "end": c_pt,
+                        "start_time": b_c.raw_time, "end_time": c_c.raw_time,
+                        "last_time": stop[-1].raw_time, "confirmed": True})
+            start, start_c = c_pt, c_c
+        if self.candidate and (self.pending or self._qualifies(self.candidate)):
+            e, e_c = ext(self.candidate)
+            out.append({"kind": "LEG", "n": len(legs) + 1, "start": start, "end": e,
+                        "start_time": start_c.raw_time, "end_time": e_c.raw_time,
+                        "confirmed": False})
+        return out
 
     def replay(self, candles: list[Candle]) -> None:
         """Reset then process each candle in order."""
@@ -119,6 +186,7 @@ class StructureBuilder:
 
     def _handle_fresh(self, candle: Candle) -> list[StructureEvent]:
         """No segments yet — accumulate toward the first leg."""
+        self.pre_leg.append(candle)
         if candle.label in FRESH_STOP_LABELS:
             if self.candidate and LegValidator.is_valid_leg(self.candidate):
                 return self._promote_and_stop(candle)
@@ -182,38 +250,120 @@ class StructureBuilder:
         return [StructureEvent(EventKind.STOP_STARTED, stop, self.confirmed_legs)]
 
     def _handle_stop_active(self, candle: Candle) -> list[StructureEvent]:
-        """Last segment is a STOP — accumulate candidate or deepen stop."""
+        """Last segment is a STOP.
+
+        Rules (owner, 2026-10-09):
+        - Same-direction candles accumulate in the candidate.
+        - Before the candidate qualifies (valid base AND D beyond B), S/L/D/J
+          candles do NOT break it — they join the candidate.
+        - Once qualified, the first S/L/D/J or opposite candle confirms the
+          leg and opens the next stop.
+        - A candidate that is abandoned (opposite candle, not beyond B) is
+          part of the stop — candles are never dropped.
+        - Candidate beyond B but without a valid base = pending leg: it waits
+          (later candles join it) until it becomes a valid leg or price closes
+          back beyond B, in which case everything returns to the stop.
+        """
         stop = self.segments[-1]
         log.debug(f"stop_active: candle={candle.label.value} "
                   f"struct_dir={candle.structure_direction} "
                   f"self.direction={self.direction} "
-                  f"candidate={[c.label.value for c in self.candidate]}")
+                  f"candidate={[c.label.value for c in self.candidate]} "
+                  f"pending={self.pending}")
+        same_dir = (candle.structure_direction == self.direction
+                    and candle.label not in ALWAYS_STOP_LABELS)
 
-        if candle.label in ALWAYS_STOP_LABELS:
-            if self.candidate and LegValidator.is_valid_leg(self.candidate):
-                return self._promote_and_stop(candle)
-            stop.candles.append(candle)
-            self.candidate.clear()
+        if self.pending:
+            self.candidate.append(candle)
+            if self._qualifies(self.candidate):
+                if not same_dir:
+                    return self._promote_pending(candle)
+                return []
+            if self._closed_back(candle):
+                stop.candles.extend(self.candidate)
+                self.candidate.clear()
+                self.pending = False
             return []
 
-        if candle.structure_direction == self.direction:
+        if same_dir:
             self.candidate.append(candle)
             return []
 
-        if self.candidate and LegValidator.is_valid_leg(self.candidate):
-            return self._promote_and_stop(candle)
+        if self.candidate and self._qualifies(self.candidate, trigger=candle):
+            return self._promote_and_stop(candle, checked=True)
+
+        if (self.candidate and self._beyond_b(self.candidate)
+                and self._stop_has_retracement(stop)):
+            # pending leg: D>B reached but not enough candles for a leg yet
+            self.pending = True
+            self.candidate.append(candle)
+            return []
+
+        if candle.label in ALWAYS_STOP_LABELS and self.candidate:
+            self.candidate.append(candle)          # rule 1
+            return []
+
+        stop.candles.extend(self.candidate)        # rule 2 — never drop candles
         stop.candles.append(candle)
         self.candidate.clear()
         return []
 
     # ---- helpers ----------------------------------------------------------
 
-    def _promote_and_stop(self, trigger: Candle) -> list[StructureEvent]:
+    def _directional(self, cands: list[Candle]) -> list[Candle]:
+        return [c for c in cands if c.label not in ALWAYS_STOP_LABELS
+                and c.structure_direction == self.direction]
+
+    def _prev_b(self) -> float | None:
+        legs = [i for i, s in enumerate(self.segments) if s.kind == SegmentKind.LEG]
+        if not legs:
+            return None
+        i = legs[-1]
+        cands = list(self.segments[i].candles)
+        if i + 1 < len(self.segments):
+            cands += self.segments[i + 1].candles
+        if self.direction == Direction.BULL:
+            return max(c.high for c in cands)
+        return min(c.low for c in cands)
+
+    def _beyond_b(self, cands: list[Candle], trigger: Candle | None = None) -> bool:
+        b = self._prev_b()
+        d = self._directional(cands)
+        if b is None or not d:
+            return False
+        pts = d + ([trigger] if trigger is not None else [])
+        if self.direction == Direction.BULL:
+            return max(c.high for c in pts) > b
+        return min(c.low for c in pts) < b
+
+    def _qualifies(self, cands: list[Candle], trigger: Candle | None = None) -> bool:
+        d = self._directional(cands)
+        return bool(d) and LegValidator.has_valid_base(d) and self._beyond_b(cands, trigger)
+
+    def _stop_has_retracement(self, stop: Segment) -> bool:
+        """True if the stop contains an opposite-direction candle. Without one,
+        a move beyond B is a continuation of the same leg, not a new leg."""
+        return any(c.structure_direction is not None
+                   and c.structure_direction != self.direction
+                   for c in stop.candles)
+
+    def _closed_back(self, candle: Candle) -> bool:
+        b = self._prev_b()
+        if b is None:
+            return False
+        return candle.close < b if self.direction == Direction.BULL else candle.close > b
+
+    def _promote_pending(self, trigger: Candle) -> list[StructureEvent]:
+        self.candidate.pop()            # trigger opens the stop
+        self.pending = False
+        return self._promote_and_stop(trigger, checked=True)
+
+    def _promote_and_stop(self, trigger: Candle, checked: bool = False) -> list[StructureEvent]:
         """Promote candidate to a confirmed leg and open a stop with *trigger*."""
         # Staircase pre-check: for Leg 2+, verify the candidate extends
         # beyond the previous leg before promoting.
         prev_legs = [s for s in self.segments if s.kind == SegmentKind.LEG]
-        if prev_legs:
+        if prev_legs and not checked:
             prev_leg = prev_legs[-1]
             prev_end = StructurePoints.leg_endpoint(prev_leg)
 
@@ -237,13 +387,21 @@ class StructureBuilder:
                     prev_end, curr_end,
                 )
                 if self.segments and self.segments[-1].kind == SegmentKind.STOP:
+                    self.segments[-1].candles.extend(self.candidate)
                     self.segments[-1].candles.append(trigger)
+                    self.candidate.clear()
                 return []
 
+        leg_candles = list(self.candidate)
+        if not prev_legs and self.pre_leg:
+            first = leg_candles[0]
+            pre = [c for c in self.pre_leg if c.index < first.index]
+            leg_candles = pre + leg_candles
+            self.pre_leg = []
         leg = Segment(
             kind=SegmentKind.LEG,
             direction=self.direction,
-            candles=list(self.candidate),
+            candles=leg_candles,
         )
         self.segments.append(leg)
         self.candidate.clear()
@@ -276,9 +434,17 @@ class StructureBuilder:
             legs = [s for s in self.segments if s.kind == SegmentKind.LEG]
             prev_stop = stops[0] if len(stops) >= 2 else None
 
-            # Condition 1: geometric reverse
+            # The stop's extreme must include candles still held in the
+            # candidate (same-direction candles whose wick reverses the leg).
+            stop_view = stops[-1]
+            if self.candidate:
+                stop_view = Segment(
+                    kind=SegmentKind.STOP,
+                    direction=stops[-1].direction,
+                    candles=list(stops[-1].candles) + list(self.candidate),
+                )
             cond1 = bool(legs) and BreakDetector.is_single_leg_reverse(
-                legs[0], stops[-1], prev_stop,
+                legs[0], stop_view, prev_stop,
             )
 
             # Condition 2: shift score (8 elements, C excluded)

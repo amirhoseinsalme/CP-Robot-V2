@@ -9,9 +9,9 @@
   },
   "symbols": [
     {
-      "symbol": "xauusd@",
+      "symbol": "US30.Z26",
       "enabled": true,
-      "session_start": "10:51",
+      "session_start": "19:11",
       "session_end": "23:00",
       "sl_pips": 60.0,
       "tp_pips": 30.0,

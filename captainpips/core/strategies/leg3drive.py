@@ -273,9 +273,15 @@ def _d_beyond_b(segments: list[Segment], direction: Direction) -> bool:
         return False
 
     leg1, leg2 = legs[0], legs[1]
-
-    point_b = StructurePoints.leg_endpoint(leg1)
-    point_d = StructurePoints.leg_endpoint(leg2)
+    # Shared-point rule: a leg's end point includes the candles of its stop.
+    b_cands = leg1.candles + stops[0].candles
+    d_cands = leg2.candles + (stops[1].candles if len(stops) >= 2 else [])
+    if direction == Direction.BULL:
+        point_b = max(c.high for c in b_cands)
+        point_d = max(c.high for c in d_cands)
+    else:
+        point_b = min(c.low for c in b_cands)
+        point_d = min(c.low for c in d_cands)
 
     if direction == Direction.BULL:
         return point_d > point_b

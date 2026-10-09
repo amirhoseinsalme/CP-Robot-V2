@@ -24,6 +24,52 @@ class ChartDrawer:
     def __init__(self, zmq_connector) -> None:
         self._zmq = zmq_connector
         self._objects: list[str] = []
+        self._sent: dict[str, tuple] = {}   # last geometry sent per object name
+
+    def draw_structure(self, builder, symbol: str) -> None:
+        """Draw every confirmed leg and stop from builder.points().
+
+        Boxes follow the shared-point rule: a leg box spans its start point
+        candle to its end point (B) candle; the stop box starts on that same
+        B candle and ends on its C candle, so consecutive boxes share the edge
+        candle and never overlap beyond it. Only changed boxes are re-sent.
+        """
+        for p in builder.points():
+            if not p["confirmed"]:
+                continue
+            if p["kind"] == "LEG":
+                name = f"CP_LEG_{p['n']}_{symbol}"
+                t1, t2 = p["start_time"], p["end_time"]
+                p1, p2 = p["start"], p["end"]
+                color = "#00FF00" if builder.direction == Direction.BULL else "#FF0000"
+                label = f"Leg {p['n']}"
+            else:
+                name = f"CP_STOP_{p['n']}_{symbol}"
+                t1 = p["start_time"]
+                t2 = max(p["end_time"], p["start_time"]) if p["end"] is not None \
+                    else max(p["last_time"], p["start_time"])
+                p1 = p["start"]
+                p2 = p["end"] if p["end"] is not None else p["end_now"]
+                color = "#808080"
+                label = f"Stop {p['n']}"
+            t1, t2 = min(t1, t2), max(t1, t2)
+            geom = (t1, t2 + 60, max(p1, p2), min(p1, p2))
+            if self._sent.get(name) == geom:
+                continue
+            self._sent[name] = geom
+            self._send_draw({
+                "type": "rectangle",
+                "name": name,
+                "symbol": symbol,
+                "time1": geom[0],
+                "time2": geom[1],
+                "price1": geom[2],
+                "price2": geom[3],
+                "color": color,
+                "label": label,
+            })
+            if name not in self._objects:
+                self._objects.append(name)
 
     def on_leg_confirmed(self, leg: Segment, number: int, symbol: str) -> None:
         """Draw a rectangle spanning the full leg candle range."""
@@ -79,6 +125,7 @@ class ChartDrawer:
             "prefix": "CP_",
         })
         self._objects.clear()
+        self._sent.clear()
 
     def on_double_detected(self, candle: Candle, symbol: str) -> None:
         """Draw an arrow at the candle marking a double pattern."""
@@ -110,18 +157,12 @@ class ChartDrawer:
         if not legs:
             return
 
-        if len(legs) == 1:
-            # Single leg: fail zone = leg_start (Point A)
-            fail_price = StructurePoints.leg_start(legs[0])
-        else:
-            # Multi-leg: fail zone = start of the LATEST confirmed leg,
-            # folding in the previous stop's extreme.
-            # This gives the true invalidation level — if the current correction
-            # retraces past where the latest leg began, the structure has failed.
-            # legs[-1] = the most recent confirmed leg
-            # stops[-2] = the last COMPLETED stop (stops[-1] is the current forming one)
-            prev_stop = stops[-2] if len(stops) >= 2 else (stops[-1] if stops else None)
-            fail_price = StructurePoints.leg_start(legs[-1], prev_stop)
+        # Fail zone = start point of the latest confirmed leg (A for leg 1,
+        # C of the previous stop for later legs) — same points as the chart boxes.
+        leg_pts = [p for p in builder.points() if p["kind"] == "LEG" and p["confirmed"]]
+        if not leg_pts:
+            return
+        fail_price = leg_pts[-1]["start"]
 
         log.info(f"on_fail_zone: symbol={symbol} "
                  f"legs={len(legs)} stops={len(stops)} direction={direction} "
