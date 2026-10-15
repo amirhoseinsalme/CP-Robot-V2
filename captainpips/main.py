@@ -834,6 +834,8 @@ class CaptainPipsBot:
         if not broke and not self._is_backfilling.get(symbol, False):
             self._drawer.draw_structure(builder, symbol)
 
+        had_trade_before_signals = self.positions.has_active_trade(symbol)
+
         # M2BO check — runs independently of active_watch
         if not broke and symbol in self.m2bo:
             _m2bo_signal = self.m2bo[symbol].on_candle(candle)
@@ -858,7 +860,10 @@ class CaptainPipsBot:
         # 5. Position management
         had_position = self.positions.has_active_trade(symbol)
         trade_before = self.positions.get_active_trade(symbol) if had_position else None
-        self.positions.on_price(symbol, candle.low, candle.high)
+        if had_trade_before_signals:
+            self.positions.on_price(symbol, candle.low, candle.high)
+        elif had_position:
+            log.debug("[%s] trade opened on this candle — position ticking starts next candle", symbol)
 
         # 6. Re-evaluate strategies if position just closed
         if had_position and not self.positions.has_active_trade(symbol):

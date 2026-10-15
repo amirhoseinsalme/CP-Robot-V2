@@ -77368,5 +77368,2572 @@
     },
     "id": 3966,
     "created_at": "2026-10-09T16:42:00.649018+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3967,
+    "created_at": "2026-10-09T16:43:00.639533+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3968,
+    "created_at": "2026-10-09T16:44:01.483813+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3969,
+    "created_at": "2026-10-09T16:44:01.746597+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3970,
+    "created_at": "2026-10-09T16:44:01.996412+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3971,
+    "created_at": "2026-10-09T16:44:02.216311+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3972,
+    "created_at": "2026-10-09T16:44:02.476731+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3973,
+    "created_at": "2026-10-09T16:44:02.697618+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3974,
+    "created_at": "2026-10-09T16:44:02.930505+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3975,
+    "created_at": "2026-10-09T16:44:03.162899+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3976,
+    "created_at": "2026-10-09T16:44:03.453444+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": true
+    },
+    "id": 3977,
+    "created_at": "2026-10-09T16:44:03.678004+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": true
+    },
+    "id": 3978,
+    "created_at": "2026-10-09T16:44:03.921757+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": true
+    },
+    "id": 3979,
+    "created_at": "2026-10-09T16:44:04.159467+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": true
+    },
+    "id": 3980,
+    "created_at": "2026-10-09T16:44:04.409654+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": true
+    },
+    "id": 3981,
+    "created_at": "2026-10-09T16:44:04.652465+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 3982,
+    "created_at": "2026-10-09T16:44:04.881103+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 3983,
+    "created_at": "2026-10-09T16:44:05.126159+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 3984,
+    "created_at": "2026-10-09T16:44:05.456381+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 3985,
+    "created_at": "2026-10-09T16:44:05.667733+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3986,
+    "created_at": "2026-10-09T16:44:05.856942+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3987,
+    "created_at": "2026-10-09T16:44:06.062680+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3988,
+    "created_at": "2026-10-09T16:44:06.285669+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3989,
+    "created_at": "2026-10-09T16:44:06.485357+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3990,
+    "created_at": "2026-10-09T16:44:06.718399+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3991,
+    "created_at": "2026-10-09T16:44:06.940579+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3992,
+    "created_at": "2026-10-09T16:44:07.140647+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3993,
+    "created_at": "2026-10-09T16:44:07.346128+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3994,
+    "created_at": "2026-10-09T16:44:07.488529+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3995,
+    "created_at": "2026-10-09T16:44:07.690242+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3996,
+    "created_at": "2026-10-09T16:44:07.886745+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3997,
+    "created_at": "2026-10-09T16:44:08.097701+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3998,
+    "created_at": "2026-10-09T16:45:00.860026+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 3999,
+    "created_at": "2026-10-09T16:46:00.742435+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4000,
+    "created_at": "2026-10-09T16:47:00.655719+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": false
+    },
+    "id": 4001,
+    "created_at": "2026-10-09T16:48:00.843249+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": false
+    },
+    "id": 4002,
+    "created_at": "2026-10-09T16:49:00.635835+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": false
+    },
+    "id": 4003,
+    "created_at": "2026-10-09T16:50:00.933313+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": false
+    },
+    "id": 4004,
+    "created_at": "2026-10-09T16:51:00.849524+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4005,
+    "created_at": "2026-10-09T16:52:00.655037+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": false
+    },
+    "id": 4006,
+    "created_at": "2026-10-09T16:53:00.664344+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": false
+    },
+    "id": 4007,
+    "created_at": "2026-10-09T16:54:00.752033+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": true
+    },
+    "id": 4008,
+    "created_at": "2026-10-09T16:55:00.641106+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": true,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": true
+    },
+    "id": 4009,
+    "created_at": "2026-10-09T16:56:00.744519+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "id": 4010,
+    "created_at": "2026-10-09T16:56:00.958112+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4011,
+    "created_at": "2026-10-09T17:04:00.635221+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4012,
+    "created_at": "2026-10-09T17:05:00.945202+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4013,
+    "created_at": "2026-10-09T17:06:00.655970+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4014,
+    "created_at": "2026-10-09T17:07:00.840498+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4015,
+    "created_at": "2026-10-09T17:08:00.758813+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4016,
+    "created_at": "2026-10-09T17:09:00.858874+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": true
+    },
+    "id": 4017,
+    "created_at": "2026-10-09T17:10:00.664976+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4018,
+    "created_at": "2026-10-09T17:11:00.744337+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4019,
+    "created_at": "2026-10-09T17:12:00.643270+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4020,
+    "created_at": "2026-10-09T17:13:00.757451+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4021,
+    "created_at": "2026-10-09T17:14:00.642415+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4022,
+    "created_at": "2026-10-09T17:15:00.843166+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4023,
+    "created_at": "2026-10-09T17:16:00.745988+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "id": 4024,
+    "created_at": "2026-10-09T17:16:00.965003+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4025,
+    "created_at": "2026-10-09T17:17:00.859872+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4026,
+    "created_at": "2026-10-09T17:18:00.759844+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4027,
+    "created_at": "2026-10-09T17:19:01.353034+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": true,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": true,
+      "h": false,
+      "i": false
+    },
+    "id": 4028,
+    "created_at": "2026-10-09T17:20:00.748361+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "id": 4029,
+    "created_at": "2026-10-09T17:20:00.970693+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4030,
+    "created_at": "2026-10-09T17:22:00.958257+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4031,
+    "created_at": "2026-10-09T17:23:04.043848+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4032,
+    "created_at": "2026-10-09T17:24:01.862356+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4033,
+    "created_at": "2026-10-09T17:25:00.761050+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4034,
+    "created_at": "2026-10-09T17:26:00.966231+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 5,
+    "applicable_count": 8,
+    "confirmed": false,
+    "id": 4035,
+    "created_at": "2026-10-09T17:26:01.181479+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4036,
+    "created_at": "2026-10-09T17:33:01.052934+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4037,
+    "created_at": "2026-10-09T17:34:00.638815+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4038,
+    "created_at": "2026-10-09T17:35:00.956212+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4039,
+    "created_at": "2026-10-09T17:36:00.927397+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4040,
+    "created_at": "2026-10-09T17:37:00.653497+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4041,
+    "created_at": "2026-10-09T17:38:01.035732+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4042,
+    "created_at": "2026-10-09T17:39:00.949663+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4043,
+    "created_at": "2026-10-09T17:40:00.986355+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4044,
+    "created_at": "2026-10-09T17:41:00.568490+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4045,
+    "created_at": "2026-10-09T17:42:00.859114+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4046,
+    "created_at": "2026-10-09T17:43:00.743716+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4047,
+    "created_at": "2026-10-09T17:44:00.963996+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4048,
+    "created_at": "2026-10-09T17:45:00.946400+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 4049,
+    "created_at": "2026-10-09T17:46:00.936027+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 4050,
+    "created_at": "2026-10-09T17:47:00.954185+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 4051,
+    "created_at": "2026-10-09T17:48:00.950001+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 4052,
+    "created_at": "2026-10-09T17:49:00.906128+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 4053,
+    "created_at": "2026-10-09T17:50:00.946881+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 4,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": false
+    },
+    "id": 4054,
+    "created_at": "2026-10-09T17:51:01.155423+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4055,
+    "created_at": "2026-10-09T17:52:00.649904+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4056,
+    "created_at": "2026-10-09T17:53:00.736688+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4057,
+    "created_at": "2026-10-09T17:54:00.746501+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4058,
+    "created_at": "2026-10-09T17:55:00.851121+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4059,
+    "created_at": "2026-10-09T17:56:00.544756+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4060,
+    "created_at": "2026-10-09T17:57:00.860380+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4061,
+    "created_at": "2026-10-09T17:58:00.852206+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 6,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": true,
+      "i": true
+    },
+    "id": 4062,
+    "created_at": "2026-10-09T17:59:00.953214+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4063,
+    "created_at": "2026-10-09T18:00:01.129491+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4064,
+    "created_at": "2026-10-09T18:01:00.855503+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4065,
+    "created_at": "2026-10-09T18:02:00.855939+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4066,
+    "created_at": "2026-10-09T18:03:00.943531+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4067,
+    "created_at": "2026-10-15T13:10:16.051340+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4068,
+    "created_at": "2026-10-15T13:10:16.336098+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4069,
+    "created_at": "2026-10-15T13:10:21.228924+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4070,
+    "created_at": "2026-10-15T13:10:21.550895+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4071,
+    "created_at": "2026-10-15T13:10:23.056031+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4072,
+    "created_at": "2026-10-15T13:10:23.367560+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4073,
+    "created_at": "2026-10-15T13:11:05.415060+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4074,
+    "created_at": "2026-10-15T13:12:05.411728+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4075,
+    "created_at": "2026-10-15T13:13:05.415922+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4076,
+    "created_at": "2026-10-15T13:14:05.450478+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4077,
+    "created_at": "2026-10-15T13:15:05.537229+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 3,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": true,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4078,
+    "created_at": "2026-10-15T13:16:05.321169+00:00"
+  },
+  {
+    "type": "signal",
+    "symbol": "US30.Z26",
+    "strategy": "Leg3Drive",
+    "direction": "BEAR",
+    "entry_price": 52029.0,
+    "reason": "Leg3Drive Mode A: BO in leg direction",
+    "executed": true,
+    "id": 4079,
+    "created_at": "2026-10-15T13:16:05.852679+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4080,
+    "created_at": "2026-10-15T13:17:05.637615+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4081,
+    "created_at": "2026-10-15T13:18:05.604021+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4082,
+    "created_at": "2026-10-15T13:19:05.328468+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4083,
+    "created_at": "2026-10-15T13:20:05.735292+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4084,
+    "created_at": "2026-10-15T13:21:05.448385+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 1,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4085,
+    "created_at": "2026-10-15T13:22:05.733242+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4086,
+    "created_at": "2026-10-15T13:23:05.629362+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4087,
+    "created_at": "2026-10-15T13:24:06.631976+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4088,
+    "created_at": "2026-10-15T13:25:05.323727+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4089,
+    "created_at": "2026-10-15T13:26:05.751040+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4090,
+    "created_at": "2026-10-15T13:27:05.647347+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 9,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4091,
+    "created_at": "2026-10-15T13:28:05.416545+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 9,
+    "applicable_count": 9,
+    "confirmed": true,
+    "elements": {
+      "a": true,
+      "b": true,
+      "c": true,
+      "d": true,
+      "e": true,
+      "f": true,
+      "g": true,
+      "h": true,
+      "i": true
+    },
+    "id": 4092,
+    "created_at": "2026-10-15T13:29:05.434126+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 9,
+    "applicable_count": 9,
+    "confirmed": true,
+    "id": 4093,
+    "created_at": "2026-10-15T13:29:05.665468+00:00"
+  },
+  {
+    "type": "signal",
+    "symbol": "US30.Z26",
+    "strategy": "M2BO",
+    "direction": "BULL",
+    "entry_price": 52099.0,
+    "reason": "M2BO: close 52099.00000 > stop-2 high 52052.00000",
+    "executed": true,
+    "id": 4094,
+    "created_at": "2026-10-15T13:30:06.196171+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 0,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": false,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": false,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4095,
+    "created_at": "2026-10-15T13:33:05.457388+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4096,
+    "created_at": "2026-10-15T13:34:05.448144+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4097,
+    "created_at": "2026-10-15T13:35:05.236188+00:00"
+  },
+  {
+    "type": "shift_score",
+    "symbol": "US30.Z26",
+    "true_count": 2,
+    "applicable_count": 8,
+    "confirmed": false,
+    "elements": {
+      "a": true,
+      "b": false,
+      "c": false,
+      "d": false,
+      "e": false,
+      "f": true,
+      "g": false,
+      "h": false,
+      "i": false
+    },
+    "id": 4098,
+    "created_at": "2026-10-15T13:36:05.339623+00:00"
   }
 ]

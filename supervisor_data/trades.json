@@ -343,9 +343,13 @@
     "sl_price": 51717.0,
     "strategy": "Leg2Chain",
     "entry_time": "18:47",
-    "status": "open",
+    "status": "win",
     "id": 24,
-    "created_at": "2026-10-09T15:48:01.363996+00:00"
+    "created_at": "2026-10-09T15:48:01.363996+00:00",
+    "exit_price": 52000.0,
+    "exit_time": "16:23",
+    "pnl": 0.6086956521739131,
+    "updated_at": "2026-10-15T13:24:06.923878+00:00"
   },
   {
     "symbol": "US30.Z26",
@@ -354,8 +358,34 @@
     "sl_price": 51771.0,
     "strategy": "Leg2Chain",
     "entry_time": "19:12",
-    "status": "open",
+    "status": "win",
     "id": 25,
-    "created_at": "2026-10-09T16:13:01.007329+00:00"
+    "created_at": "2026-10-09T16:13:01.007329+00:00",
+    "exit_price": 52175.0,
+    "exit_time": "16:30",
+    "pnl": 0.6666666666666666,
+    "updated_at": "2026-10-15T13:31:05.404254+00:00"
+  },
+  {
+    "symbol": "US30.Z26",
+    "direction": "BEAR",
+    "entry_price": 52029.0,
+    "sl_price": 52074.0,
+    "strategy": "Leg3Drive",
+    "entry_time": "16:15",
+    "status": "open",
+    "id": 26,
+    "created_at": "2026-10-15T13:16:05.795592+00:00"
+  },
+  {
+    "symbol": "US30.Z26",
+    "direction": "BULL",
+    "entry_price": 52099.0,
+    "sl_price": 51980.0,
+    "strategy": "M2BO",
+    "entry_time": "16:29",
+    "status": "open",
+    "id": 27,
+    "created_at": "2026-10-15T13:30:06.138091+00:00"
   }
 ]
